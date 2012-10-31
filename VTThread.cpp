@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <Windows.h>
 
+
 std::string get_win_error_msg()
 {
     std::string msg;
@@ -40,25 +41,25 @@ std::string get_win_error_msg()
 
 enum State {Running, Waiting, Finished, NotStarted};
 
-unsigned long WINAPI VTThread::thread_start( void* params )
+unsigned long WINAPI VT::Thread::thread_start( void* params )
 {
-    VTThread* t = reinterpret_cast<VTThread*>( params );
+    Thread* t = reinterpret_cast<Thread*>( params );
     t->run();
     t->state = Finished;
     return 0;
 }
 
-VTThread::VTThread() : thread_handle( NULL ), state( NotStarted )
+VT::Thread::Thread() : thread_handle( NULL ), state( NotStarted )
 {
 }
 
-VTThread::~VTThread()
+VT::Thread::~Thread()
 {
     if ( state != NotStarted )
     { CloseHandle( thread_handle ); }
 }
 
-void VTThread::start()
+void VT::Thread::start()
 {
     state = Running;
     HANDLE h = CreateThread( NULL, 0, &thread_start, this,  0, NULL );
@@ -71,7 +72,7 @@ void VTThread::start()
     thread_handle = h;
 }
 
-bool VTThread::join( int timeout_millis )
+bool VT::Thread::join( int timeout_millis )
 {
     assert( timeout_millis >= -1 );
 
@@ -95,12 +96,12 @@ bool VTThread::join( int timeout_millis )
     }
 }
 
-bool VTThread::isRunning()
+bool VT::Thread::isRunning()
 {
     return ( state == Running );
 }
 
-bool VTThread::isFinished()
+bool VT::Thread::isFinished()
 {
     return ( state == Finished );
 }

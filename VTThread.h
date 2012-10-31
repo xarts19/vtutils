@@ -1,27 +1,32 @@
 #pragma once
 
-class VTThread
+namespace VT
 {
-public:
-    VTThread();
-    ~VTThread();
 
-    void start();
-    bool join( int timeout_millis = -1 );
-    bool isRunning();
-    bool isFinished();
-    virtual void run() = 0;
+    class Thread
+    {
+    public:
+        Thread();
+        ~Thread();
 
-private:
-    typedef void* HANDLE;
+        void start();
+        bool join( int timeout_millis = -1 );
+        bool isRunning();
+        bool isFinished();
+        virtual void run() = 0;
 
-    //prevent copying
-    VTThread( const VTThread& );
-    VTThread& operator=( const VTThread& );
+    private:
+        typedef void* HANDLE;
 
-    static unsigned long __stdcall thread_start( void* params );
+        //prevent copying
+        Thread( const Thread& );
+        Thread& operator=( const Thread& );
 
-private:
-    HANDLE thread_handle;
-    int state;
+        static unsigned long __stdcall thread_start( void* params );
+
+    private:
+        HANDLE thread_handle;
+        int state;
+    };
+
 };

@@ -1,29 +1,29 @@
 #include "VTCriticalSection.h"
 #include <Windows.h>
 
-struct VTCriticalSection::critical_section_data
+struct VT::CriticalSection::critical_section_data
 {
     CRITICAL_SECTION _criticalSection;
 };
 
-VTCriticalSection::VTCriticalSection()
+VT::CriticalSection::CriticalSection()
 {
     data = new critical_section_data();
     InitializeCriticalSection( &data->_criticalSection );
 }
 
-VTCriticalSection::~VTCriticalSection()
+VT::CriticalSection::~CriticalSection()
 {
     DeleteCriticalSection( &data->_criticalSection );
     delete data;
 }
 
-void VTCriticalSection::enter()
+void VT::CriticalSection::enter()
 {
     EnterCriticalSection( &data->_criticalSection );
 }
 
-void VTCriticalSection::leave()
+void VT::CriticalSection::leave()
 {
     LeaveCriticalSection( &data->_criticalSection );
 }

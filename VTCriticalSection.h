@@ -1,17 +1,21 @@
 #pragma once
 
-class VTCriticalSection
+namespace VT
 {
 
-public:
-    VTCriticalSection();
-    ~VTCriticalSection();
+    class CriticalSection
+    {
 
-    void enter();
-    void leave();
+    public:
+        CriticalSection();
+        ~CriticalSection();
 
-private:
-    struct critical_section_data;
-    critical_section_data* data;
+        void enter();
+        void leave();
+
+    private:
+        struct critical_section_data;
+        critical_section_data* data;
+    };
+
 };
-

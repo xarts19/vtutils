@@ -1,29 +1,29 @@
 #include "VTCriticalSection.h"
 #include <pthread.h>
 
-struct VTCriticalSection::critical_section_data
+struct VT::CriticalSection::critical_section_data
 {
     pthread_mutex_t _criticalSection;
 };
 
-VTCriticalSection::VTCriticalSection()
+VT::CriticalSection::CriticalSection()
 {
     data = new critical_section_data();
     pthread_mutex_init( &data->_criticalSection, NULL );
 }
 
-VTCriticalSection::~VTCriticalSection()
+VT::CriticalSection::~CriticalSection()
 {
     pthread_mutex_destroy( &data->_criticalSection );
     delete data;
 }
 
-void VTCriticalSection::enter()
+void VT::CriticalSection::enter()
 {
     pthread_mutex_lock( &data->_criticalSection );
 }
 
-void VTCriticalSection::leave()
+void VT::CriticalSection::leave()
 {
     pthread_mutex_unlock( &data->_criticalSection );
 }
