@@ -16,7 +16,7 @@ namespace VT
     class Logger
     {
     public:
-        enum LogLevel { Empty = 0, Critical = 1, Warning = 2, Debug = 3 };
+        enum LogLevel { Always = 0, Critical = 1, Error = 2, Warning = 3, Info = 4, Debug = 5 };
 
         Logger( bool time = false, bool u_stdout = false ) :
             saved_prepend_time( prepend_time ),
@@ -60,15 +60,23 @@ namespace VT
                     message = "DEBUG    " + message;
                     break;
 
+                case Info:
+                    message = "INFO     " + message;
+                    break;
+
                 case Warning:
                     message = "WARNING  " + message;
+                    break;
+
+                case Error:
+                    message = "ERROR    " + message;
                     break;
 
                 case Critical:
                     message = "CRITICAL " + message;
                     break;
 
-                case Empty:
+                case Always:
                     break;
             }
 

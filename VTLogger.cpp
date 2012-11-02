@@ -14,7 +14,7 @@ namespace
 
 bool VT::Logger::prepend_time = false;
 bool VT::Logger::use_stdout = false;
-VT::Logger::LogLevel VT::Logger::log_level = VT::Logger::Debug;
+VT::Logger::LogLevel VT::Logger::log_level = VT::Logger::Warning;
 
 VT::CriticalSection VT::Logger::lock;
 std::set<std::string>  VT::Logger::sinks = default_sinks();
