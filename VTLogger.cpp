@@ -44,7 +44,7 @@ void VT::Logger::logger_worker( std::string message )
 
         if ( f )
         {
-            fputs( message.c_str(), f );
+            fprintf( f, "%s", message.c_str() );
             fflush( f );
             fclose( f );
         }
