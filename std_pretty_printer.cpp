@@ -1,6 +1,17 @@
 // cl /EHsc /nologo /W4 pretty_printer.cpp
 // g++ -Wall -Wextra -std=c++0x pretty_printer.cpp -o pretty_printer.exe
 
+#if defined(_MSC_VER)
+    #define _VARIADIC_MAX 10
+    #define TUPLE_PARAMS \
+        typename T0, typename T1, typename T2, typename T3, typename T4, \
+        typename T5, typename T6, typename T7, typename T8, typename T9
+    #define TUPLE_ARGS T0, T1, T2, T3, T4, T5, T6, T7, T8, T9
+#else
+    #define TUPLE_PARAMS typename... Types
+    #define TUPLE_ARGS Types...
+#endif
+
 #include <stddef.h>
 #include <forward_list>
 #include <iostream>
@@ -32,17 +43,6 @@ template <typename T, size_t N> struct is_container<T[N]>
 template <typename Ch, typename Tr, typename Al>
     struct is_container<basic_string<Ch, Tr, Al>>
     : public false_type { };
-
-
-#if defined(_MSC_VER) && _MSC_VER == 1600
-    #define TUPLE_PARAMS \
-        typename T0, typename T1, typename T2, typename T3, typename T4, \
-        typename T5, typename T6, typename T7, typename T8, typename T9
-    #define TUPLE_ARGS T0, T1, T2, T3, T4, T5, T6, T7, T8, T9
-#elif defined(__GNUC__)
-    #define TUPLE_PARAMS typename... Types
-    #define TUPLE_ARGS Types...
-#endif
 
 
 struct default_formatter {
