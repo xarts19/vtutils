@@ -6,9 +6,8 @@ struct VT::CriticalSection::critical_section_data
     CRITICAL_SECTION _criticalSection;
 };
 
-VT::CriticalSection::CriticalSection()
+VT::CriticalSection::CriticalSection() : data( new critical_section_data() )
 {
-    data = new critical_section_data();
     InitializeCriticalSection( &data->_criticalSection );
 }
 

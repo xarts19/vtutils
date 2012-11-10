@@ -6,9 +6,8 @@ struct VT::CriticalSection::critical_section_data
     pthread_mutex_t _criticalSection;
 };
 
-VT::CriticalSection::CriticalSection()
+VT::CriticalSection::CriticalSection() : data( new critical_section_data() )
 {
-    data = new critical_section_data();
     pthread_mutex_init( &data->_criticalSection, NULL );
 }
 
