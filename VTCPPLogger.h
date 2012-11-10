@@ -13,7 +13,6 @@
 #include <assert.h>
 
 // TODO:
-//   * function to return noop logger
 //   * implement log levels
 //      * if log level < set log level => instantiate LogWorker with nullstream
 //   * implement coloring (separate implementations for each platform)
@@ -40,6 +39,9 @@
         logger1().log("smth", " is ", 25, " times ", std::hex, 12, " wrong");
         logger1().log();
         logger1().log("Nothing");
+
+        VT::Logger& logger4 = log_factory.noop("noop");
+        logger4() << "You should not see this";
 
 */
 
@@ -137,25 +139,25 @@ namespace VT
             ~LogWorker()
             {
                 *this << std::endl;
-                lock_.leave();
+                if (lock_) lock_->leave();
             }
 
             template <typename T>
             LogWorker& operator<<(T arg)
             {
-                stream_ << arg << " ";
+                *stream_ << arg << " ";
                 return *this;
             }
 
             LogWorker& operator<<(std::ostream& (*manip)(std::ostream&))
             {
-                manip(stream_);
+                manip(*stream_);
 	            return *this;
             }
 
             LogWorker& operator<<(std::ios_base& (*manip)(std::ios_base&))
             {
-                manip(stream_);
+                manip(*stream_);
 	            return *this;
             }
 
@@ -179,9 +181,10 @@ namespace VT
             }
 
         private:
-            LogWorker(std::ostream& stream, CriticalSection& lock) : stream_(stream), lock_(lock)
+            explicit
+            LogWorker(std::ostream* stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock)
             {
-                lock.enter();
+                if (lock_) lock_->enter();
             }
         
             // don't plan any funny business
@@ -191,8 +194,8 @@ namespace VT
             friend class Logger;
 
         private:
-            std::ostream& stream_;
-            CriticalSection& lock_;
+            std::ostream* stream_;
+            CriticalSection* lock_;
         };
 
     }
@@ -239,26 +242,37 @@ namespace VT
             {
             case detail_::LogType::Custom:
                 assert(stream_);
-                return detail_::LogWorker(*stream_, *lock_);
+                return detail_::LogWorker(stream_.get(), lock_.get());
 
             case detail_::LogType::Cout:
-                return detail_::LogWorker(std::cout, *lock_);
+                return detail_::LogWorker(&std::cout, lock_.get());
 
             case detail_::LogType::Cerr:
-                return detail_::LogWorker(std::cerr, *lock_);
+                return detail_::LogWorker(&std::cerr, lock_.get());
+
+            case detail_::LogType::Noop:
+                return detail_::LogWorker(dev_null_.get());
 
             default:
                 assert(0);
-                return detail_::LogWorker(*dev_null_, *lock_);
+                return detail_::LogWorker(dev_null_.get());
             }
         }
 
     private:
-        Logger(std::string name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
+        Logger(const std::string& name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
             name_(name),
             type_(type),
             stream_(stream),
             lock_(std::make_shared<CriticalSection>())
+        { }
+
+        explicit
+        Logger(const std::string& name) :
+            name_(name),
+            type_(detail_::LogType::Noop),
+            stream_(dev_null_),
+            lock_()
         { }
 
         friend class LogFactory;
@@ -281,6 +295,7 @@ namespace VT
             Use    stream("logger_name", make_shared<std::ofstream>("filename"))   to create file logger
             or     cout("logger_name")                                             to create std::cout logger
             or     cerr("logger_name")                                             to create std::cerr logger
+            or     noop("logger_name")                                             to create no-op logger
 
             Use    get("logger_name")    to retrieve existing logger
         */
@@ -298,6 +313,11 @@ namespace VT
         Logger& cerr(const std::string& name)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>());
+        }
+
+        Logger& noop(const std::string& name)
+        {
+            return loggers_[name] = Logger();
         }
 
         // get existing logger by name
