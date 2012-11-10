@@ -240,7 +240,7 @@ struct special_formatter {
     }
 };
 
-
+/*
 int main() {
     cout << "Empty vector: ";
     print_line(cout, vector<int>());
@@ -395,3 +395,4 @@ int main() {
         print_line(cout, fl, special_formatter());
     }
 }
+*/

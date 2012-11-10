@@ -18,6 +18,7 @@
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
 //   * pass options to log factory as bitflags (no space, no endl)
+//   * implement something similar to printf
 
 /*
 
