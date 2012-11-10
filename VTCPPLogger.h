@@ -135,6 +135,19 @@ namespace VT
 
         class LogWorker
         {
+        private:
+            explicit
+            LogWorker(std::ostream* stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock)
+            {
+                if (lock_) lock_->enter();
+            }
+        
+            // don't plan any funny business
+            LogWorker(const LogWorker& other);
+            LogWorker& operator=(const LogWorker& rhs);
+
+            friend class Logger;
+
         public:
             ~LogWorker()
             {
@@ -160,13 +173,6 @@ namespace VT
                 manip(*stream_);
 	            return *this;
             }
-
-            inline void log()
-            {
-                /*
-                 * A specialization to terminate the recursion. 
-                 */
-            }
         
             template<typename Arg1, typename... Args>
             inline void log(const Arg1& arg1, const Args&... args)
@@ -180,18 +186,12 @@ namespace VT
                 log(args...);
             }
 
-        private:
-            explicit
-            LogWorker(std::ostream* stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock)
+            inline void log()
             {
-                if (lock_) lock_->enter();
+                /*
+                 * A specialization to terminate the recursion. 
+                 */
             }
-        
-            // don't plan any funny business
-            LogWorker(const LogWorker& other);
-            LogWorker& operator=(const LogWorker& rhs);
-
-            friend class Logger;
 
         private:
             std::ostream* stream_;
@@ -203,6 +203,24 @@ namespace VT
     
     class Logger
     {
+    private:
+        Logger(const std::string& name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
+            name_(name),
+            type_(type),
+            stream_(stream),
+            lock_(std::make_shared<CriticalSection>())
+        { }
+
+        explicit
+        Logger(const std::string& name) :
+            name_(name),
+            type_(detail_::LogType::Noop),
+            stream_(dev_null_),
+            lock_()
+        { }
+
+        friend class LogFactory;
+
     public:
         Logger() :
             name_(""),
@@ -258,24 +276,6 @@ namespace VT
                 return detail_::LogWorker(dev_null_.get());
             }
         }
-
-    private:
-        Logger(const std::string& name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
-            name_(name),
-            type_(type),
-            stream_(stream),
-            lock_(std::make_shared<CriticalSection>())
-        { }
-
-        explicit
-        Logger(const std::string& name) :
-            name_(name),
-            type_(detail_::LogType::Noop),
-            stream_(dev_null_),
-            lock_()
-        { }
-
-        friend class LogFactory;
     
     private:
         std::string name_;
