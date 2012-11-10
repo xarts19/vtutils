@@ -1,28 +1,62 @@
 #pragma once
 
+#include "VTCriticalSection.h"
+
 #include <iostream>
 #include <fstream>
 #include <ostream>
 #include <map>
 #include <memory>
 #include <string>
+#include <exception>
 
-#include "VTCriticalSection.h"
+#include <assert.h>
 
 // TODO:
 //   * function to return noop logger
 //   * implement log levels
-//      * if log level < set log level => instantiate LoggerWorker with nullstream
+//      * if log level < set log level => instantiate LogWorker with nullstream
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
-//   * log to cerr
+//   * pass options to log factory as bitflags (no space, no endl)
+
+/*
+
+    Example:
+        VT::LogFactory log_factory;
+
+        VT::Logger& logger1 = log_factory.stream("main_cout", std::make_shared<std::ofstream>("1.txt"));
+        VT::Logger& logger2 = log_factory.cout("main");
+
+        // same as logger2
+        VT::Logger& logger3 = log_factory.get("main");
+
+        // logger automatically appends std::endl after last token and flushes output
+        // as well as adds spaces between tokens
+
+        logger1() << "Hello " << 55 << " done";
+        logger1() << std::hex << 11 << " done";
+
+        logger1().log("smth", " is ", 25, " times ", std::hex, 12, " wrong");
+        logger1().log();
+        logger1().log("Nothing");
+
+*/
 
 namespace VT
 {
     // forward declareations
     class Logger;
-    class LoggerWorker;
     class LogFactory;
+
+    // implementation details
+    namespace detail_
+    {
+        class LogWorker;
+    }
+
+    
+    // enumerations
 
     namespace LogLevel
     {
@@ -36,6 +70,34 @@ namespace VT
         };
 
     }
+    typedef LogLevel::LogLevels LogLevels;
+
+    namespace LogOpt
+    {
+        enum LogOpts
+        {
+            Default = 0x00,
+            NoSpace = 0x01,
+            NoEndl  = 0x02
+        };
+    }
+    typedef LogOpt::LogOpts LogOpts;
+
+    namespace detail_
+    {
+        namespace LogType
+        {
+            enum LogTypes
+            {
+                Cout,
+                Cerr,
+                Custom,
+                Noop
+            };
+        }
+        typedef LogType::LogTypes LogTypes;
+    }
+
 
     // implementation details
     namespace detail_
@@ -69,65 +131,62 @@ namespace VT
         typedef basic_onullstream<wchar_t> wonullstream;
 
 
-        class LoggerWorker
+        class LogWorker
         {
         public:
-            ~LoggerWorker()
+            ~LogWorker()
             {
                 *this << std::endl;
                 lock_.leave();
             }
 
             template <typename T>
-            LoggerWorker& operator<<(T arg)
+            LogWorker& operator<<(T arg)
             {
-                stream_ << arg;
+                stream_ << arg << " ";
                 return *this;
             }
 
-            LoggerWorker& operator<<(std::ostream& (*manip)(std::ostream&))
+            LogWorker& operator<<(std::ostream& (*manip)(std::ostream&))
             {
                 manip(stream_);
 	            return *this;
             }
 
-            LoggerWorker& operator<<(std::ios_base& (*manip)(std::ios_base&))
+            LogWorker& operator<<(std::ios_base& (*manip)(std::ios_base&))
             {
                 manip(stream_);
 	            return *this;
             }
 
-            template <typename Arg1>
-            void log(const Arg1& arg1)
+            inline void log()
             {
                 /*
-                 * A specialization to stream the last argument 
-                 * and terminate the recursion. 
+                 * A specialization to terminate the recursion. 
                  */
-                stream_ << arg1 << std::endl;
             }
         
             template<typename Arg1, typename... Args>
-            void log(const Arg1& arg1, const Args&... args)
+            inline void log(const Arg1& arg1, const Args&... args)
             {
                 /*
                  * Recursive function to keep streaming the arguments 
                  * one at a time until the last argument is reached and 
                  * the specialization above is called. 
                  */
-                stream_ << arg1;
+                (*this) << arg1;        // implement in terms of LogWorker::operator<<()
                 log(args...);
             }
 
         private:
-            LoggerWorker(std::ostream& stream, CriticalSection& lock) : stream_(stream), lock_(lock)
+            LogWorker(std::ostream& stream, CriticalSection& lock) : stream_(stream), lock_(lock)
             {
                 lock.enter();
             }
         
             // don't plan any funny business
-            LoggerWorker(const LoggerWorker& other);
-            LoggerWorker& operator=(const LoggerWorker& rhs);
+            LogWorker(const LogWorker& other);
+            LogWorker& operator=(const LogWorker& rhs);
 
             friend class Logger;
 
@@ -142,13 +201,17 @@ namespace VT
     class Logger
     {
     public:
-        Logger() : name_(""), stream_() { }
-        
-        Logger(std::string name, std::shared_ptr<std::ostream> stream) : name_(name), stream_(stream), lock_(std::make_shared<CriticalSection>()) { }
-        
+        Logger() :
+            name_(""),
+            type_(detail_::LogType::Noop),
+            stream_(dev_null_),
+            lock_()
+        { }
+
         Logger(const Logger& other)
         {
             name_ = other.name_;
+            type_ = other.type_;
             stream_ = other.stream_;
             lock_ = other.lock_;
         }
@@ -163,50 +226,90 @@ namespace VT
         {
             using std::swap;
             swap(first.name_, second.name_);
+            swap(first.type_, second.type_);
             swap(first.stream_, second.stream_);
             swap(first.lock_, second.lock_);
         }
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
-        detail_::LoggerWorker operator()()
+        // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
+        detail_::LogWorker operator()()
         {
-            if (stream_)
-                return detail_::LoggerWorker(*stream_, *lock_);
-            else
-                return detail_::LoggerWorker(std::cout, *lock_);
+            switch (type_)
+            {
+            case detail_::LogType::Custom:
+                assert(stream_);
+                return detail_::LogWorker(*stream_, *lock_);
+
+            case detail_::LogType::Cout:
+                return detail_::LogWorker(std::cout, *lock_);
+
+            case detail_::LogType::Cerr:
+                return detail_::LogWorker(std::cerr, *lock_);
+
+            default:
+                assert(0);
+                return detail_::LogWorker(*dev_null_, *lock_);
+            }
         }
 
-        // alternative syntax: logger.log("Hello ", std::hex, 10, " world");
-        template<typename... Args>
-        void log(const Args&... args)
-        {
-            if (stream_)
-                return detail_::LoggerWorker(*stream_, *lock_).log(args...);
-            else
-                return detail_::LoggerWorker(std::cout, *lock_).log(args...);
-        }
+    private:
+        Logger(std::string name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
+            name_(name),
+            type_(type),
+            stream_(stream),
+            lock_(std::make_shared<CriticalSection>())
+        { }
+
+        friend class LogFactory;
     
     private:
         std::string name_;
+        detail_::LogTypes type_;
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
+
+        static std::shared_ptr<detail_::onullstream> dev_null_;
     };
     
 
+    // you should probably create and store a static instance of this class in your application
     class LogFactory
     {
     public:
         /*
-            Use    get("logger_name", make_shared<std::ofstream>("filename"))   to create file logger
-            or     get("logger_name")                                           to create std::cout logger
+            Use    stream("logger_name", make_shared<std::ofstream>("filename"))   to create file logger
+            or     cout("logger_name")                                             to create std::cout logger
+            or     cerr("logger_name")                                             to create std::cerr logger
+
+            Use    get("logger_name")    to retrieve existing logger
         */
-        static Logger& get(const std::string& name, std::shared_ptr<std::ostream> stream = std::shared_ptr<std::ostream>())
+
+        Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream)
         {
-            return loggers_[name] = Logger(name, stream);
+            return loggers_[name] = Logger(name, detail_::LogType::Custom, stream);
+        }
+
+        Logger& cout(const std::string& name)
+        {
+            return loggers_[name] = Logger(name, detail_::LogType::Cout, std::shared_ptr<std::ostream>());
+        }
+
+        Logger& cerr(const std::string& name)
+        {
+            return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>());
+        }
+
+        // get existing logger by name
+        Logger& get(const std::string& name)
+        {
+            if (loggers_.count(name) == 0)
+                throw std::runtime_error("Logger \"" + name + "\" does not exist");
+            return loggers_[name];
         }
         
     private:
-        static std::map<std::string, Logger> loggers_;
+        std::map<std::string, Logger> loggers_;
     };
 
 }
