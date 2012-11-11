@@ -17,7 +17,6 @@
 //   * log to multiple streams at the same time
 //   * implement something similar to printf
 //   * add prefix / timestamp
-//   * add flag to disable locking
 
 /*
     Example:
@@ -254,6 +253,7 @@ namespace VT
             type_(type),
             stream_(stream),
             lock_(std::make_shared<CriticalSection>()),
+            use_lock_(true),
             log_level_(level),
             default_opts_(LogOpt::Default)
         { }
@@ -265,6 +265,7 @@ namespace VT
             type_(detail_::LogType::Noop),
             stream_(dev_null_),
             lock_(),
+            use_lock_(false),
             log_level_(),
             default_opts_(LogOpt::Default)
         { }
@@ -293,6 +294,16 @@ namespace VT
             return *this;
         }
 
+        void disable_locking()
+        {
+            use_lock_ = false;
+        }
+
+        void enable_locking()
+        {
+            use_lock_ = true;
+        }
+
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
         detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const
@@ -300,17 +311,19 @@ namespace VT
             if (level < log_level_)
                 return detail_::LogWorker(*dev_null_);
 
+            CriticalSection* lock = (use_lock_ ? lock_.get() : NULL);
+
             switch (type_)
             {
             case detail_::LogType::Custom:
                 assert(stream_);
-                return detail_::LogWorker(*stream_, lock_.get(), default_opts_);
+                return detail_::LogWorker(*stream_, lock, default_opts_);
 
             case detail_::LogType::Cout:
-                return detail_::LogWorker(std::cout, lock_.get(), default_opts_);
+                return detail_::LogWorker(std::cout, lock, default_opts_);
 
             case detail_::LogType::Cerr:
-                return detail_::LogWorker(std::cerr, lock_.get(), default_opts_);
+                return detail_::LogWorker(std::cerr, lock, default_opts_);
 
             case detail_::LogType::Noop:
                 return detail_::LogWorker(*dev_null_);
@@ -326,6 +339,7 @@ namespace VT
         detail_::LogTypes type_;
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
+        bool use_lock_;
         LogLevels log_level_;
         unsigned int default_opts_;
 

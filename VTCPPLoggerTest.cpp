@@ -7,6 +7,8 @@ int main()
     logger_file() << "file test";
         
     VT::Logger& logger = log_factory.cout("main_cout", VT::LogLevel::Debug);
+    logger.disable_locking();
+
     logger() << "Hello" << 55 << "done";
     logger() << std::hex << 11 << "done";
 
