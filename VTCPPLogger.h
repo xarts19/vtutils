@@ -17,8 +17,10 @@
 //      * if log level < set log level => instantiate LogWorker with nullstream
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
-//   * pass options to log factory as bitflags (no space, no endl)
+//   * pass options to log factory as bitflags (no space, no endl, no prefix, no timestamp)
 //   * implement something similar to printf
+//   * add prefix / timestamp
+//   * add flag to disable locking
 
 /*
 
@@ -137,41 +139,58 @@ namespace VT
         class LogWorker
         {
         private:
+
+            // don't plan any funny business
+            // users can't create LogWorkers
+            // and besides, it's defined in detail_ namespace, so hands off!!!
             explicit
-            LogWorker(std::ostream* stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock)
+            LogWorker(std::ostream& stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock), valid_(true)
             {
                 if (lock_) lock_->enter();
             }
         
-            // don't plan any funny business
             LogWorker(const LogWorker& other);
             LogWorker& operator=(const LogWorker& rhs);
 
             friend class Logger;
 
         public:
+
+            // just in case RVO will not be used
+            LogWorker(LogWorker&& other) : stream_(other.stream_), lock_(other.lock_), valid_(true)
+            {
+                // set so that other worker won't invoke usual destructor operations
+                other.valid_ = false;
+            }
+
+            // As soon as it goes out of scope it releases the lock and flushes output.
+            // It should usually be created as temporary from Logger and so
+            // it would go out of scope after the semicolon
             ~LogWorker()
             {
-                *this << std::endl;
-                if (lock_) lock_->leave();
+                if (valid_)
+                {
+                    *this << std::endl;
+                    if (lock_) lock_->leave();
+                }
             }
 
             template <typename T>
             LogWorker& operator<<(T arg)
             {
-                *stream_ << arg << " ";
+                stream_ << arg << " ";
                 return *this;
             }
 
             LogWorker& operator<<(std::ostream& (*manip)(std::ostream&))
             {
-                manip(*stream_);
+                manip(stream_);
 	            return *this;
             }
 
             LogWorker& operator<<(std::ios_base& (*manip)(std::ios_base&))
             {
-                manip(*stream_);
+                manip(stream_);
 	            return *this;
             }
         
@@ -195,8 +214,9 @@ namespace VT
             }
 
         private:
-            std::ostream* stream_;
-            CriticalSection* lock_;
+            std::ostream& stream_;
+            CriticalSection* lock_;     // if lock_ is NULL - don't use locking
+            bool valid_;
         };
 
     }
@@ -255,26 +275,26 @@ namespace VT
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
-        detail_::LogWorker operator()()
+        detail_::LogWorker operator()() const
         {
             switch (type_)
             {
             case detail_::LogType::Custom:
                 assert(stream_);
-                return detail_::LogWorker(stream_.get(), lock_.get());
+                return detail_::LogWorker(*stream_, lock_.get());
 
             case detail_::LogType::Cout:
-                return detail_::LogWorker(&std::cout, lock_.get());
+                return detail_::LogWorker(std::cout, lock_.get());
 
             case detail_::LogType::Cerr:
-                return detail_::LogWorker(&std::cerr, lock_.get());
+                return detail_::LogWorker(std::cerr, lock_.get());
 
             case detail_::LogType::Noop:
-                return detail_::LogWorker(dev_null_.get());
+                return detail_::LogWorker(*dev_null_);
 
             default:
                 assert(0);
-                return detail_::LogWorker(dev_null_.get());
+                return detail_::LogWorker(*dev_null_);
             }
         }
     
@@ -301,32 +321,33 @@ namespace VT
             Use    get("logger_name")    to retrieve existing logger
         */
 
-        Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream)
+        const Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Custom, stream);
         }
 
-        Logger& cout(const std::string& name)
+        const Logger& cout(const std::string& name)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Cout, std::shared_ptr<std::ostream>());
         }
 
-        Logger& cerr(const std::string& name)
+        const Logger& cerr(const std::string& name)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>());
         }
 
-        Logger& noop(const std::string& name)
+        const Logger& noop(const std::string& name)
         {
             return loggers_[name] = Logger();
         }
 
         // get existing logger by name
-        Logger& get(const std::string& name)
+        const Logger& get(const std::string& name) const
         {
-            if (loggers_.count(name) == 0)
+            auto it = loggers_.find(name);
+            if (it == loggers_.end())
                 throw std::runtime_error("Logger \"" + name + "\" does not exist");
-            return loggers_[name];
+            return it->second;
         }
         
     private:
