@@ -15,7 +15,7 @@
 // TODO:
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
-//   * pass options to log factory as bitflags (no space, no endl, no prefix, no timestamp)
+//   * default options for logger (no space, no endl, no prefix, no timestamp)
 //   * implement something similar to printf
 //   * add prefix / timestamp
 //   * add flag to disable locking
@@ -52,11 +52,12 @@ namespace VT
     {
         enum LogOpts
         {
-            Default     = 0,
-            NoSpace     = (1 << 0),
-            NoEndl      = (1 << 1),
-            NoPrefix    = (1 << 2),
-            NoTimestamp = (1 << 3)
+            Default     = 0u,
+            NoSpace     = (1u << 0),
+            NoEndl      = (1u << 1),
+            NoPrefix    = (1u << 2),
+            NoTimestamp = (1u << 3),
+            NoFlush     = (1u << 4)
         };
     }
     typedef LogOpt::LogOpts LogOpts;
@@ -109,12 +110,31 @@ namespace VT
         class LogWorker
         {
         private:
+            // helper
+            inline bool is_set(LogOpts opt) const
+            {
+                return ( (options_ & opt) == opt );
+            }
+            inline bool not_set(LogOpts opt) const
+            {
+                return ( (options_ & opt) != opt );
+            }
+            inline void set(LogOpts opt)
+            {
+                options_ |= opt;
+            }
 
             // don't plan any funny business
             // users can't create LogWorkers
             // and besides, it's defined in detail_ namespace, so hands off!!!
             explicit
-            LogWorker(std::ostream& stream, CriticalSection* lock = NULL) : stream_(stream), lock_(lock), valid_(true)
+            LogWorker(std::ostream& stream,
+                      CriticalSection* lock = NULL,
+                      LogOpts options = LogOpt::Default) :
+                stream_(stream),
+                lock_(lock),
+                valid_(true),
+                options_(options)
             {
                 if (lock_) lock_->enter();
             }
@@ -127,7 +147,10 @@ namespace VT
         public:
 
             // just in case RVO will not be used
-            LogWorker(LogWorker&& other) : stream_(other.stream_), lock_(other.lock_), valid_(true)
+            LogWorker(LogWorker&& other) :
+                stream_(other.stream_),
+                lock_(other.lock_),
+                valid_(true)
             {
                 // set so that other worker won't invoke usual destructor operations
                 other.valid_ = false;
@@ -140,15 +163,46 @@ namespace VT
             {
                 if (valid_)
                 {
-                    *this << std::endl;
+                    if (not_set(LogOpt::NoEndl))
+                        *this << std::endl;
+                    else if (not_set(LogOpt::NoFlush))
+                        *this << std::flush;
                     if (lock_) lock_->leave();
                 }
             }
 
+            // setting options
+            LogWorker& nospace()
+            {
+                set(LogOpt::NoSpace);
+                return *this;
+            }
+
+            LogWorker& noendl()
+            {
+                set(LogOpt::NoEndl);
+                return *this;
+            }
+
+            LogWorker& noprefix()
+            {
+                set(LogOpt::NoPrefix);
+                return *this;
+            }
+
+            LogWorker& notimestamp()
+            {
+                set(LogOpt::NoTimestamp);
+                return *this;
+            }
+
+            // printers
             template <typename T>
             LogWorker& operator<<(T arg)
             {
-                stream_ << arg << " ";
+                stream_ << arg;
+                if (not_set(LogOpt::NoSpace))
+                    stream_ << " ";
                 return *this;
             }
 
@@ -177,16 +231,13 @@ namespace VT
             }
 
             inline void log()
-            {
-                /*
-                 * A specialization to terminate the recursion. 
-                 */
-            }
+            { /* A specialization to terminate the recursion.  */ }
 
         private:
             std::ostream& stream_;
             CriticalSection* lock_;     // if lock_ is NULL - don't use locking
             bool valid_;
+            unsigned int options_;
         };
 
     }
@@ -204,8 +255,7 @@ namespace VT
             type_(type),
             stream_(stream),
             lock_(std::make_shared<CriticalSection>()),
-            log_level_(level),
-            options_(LogOpt::Default)
+            log_level_(level)
         { }
 
         // noop logger
@@ -215,8 +265,7 @@ namespace VT
             type_(detail_::LogType::Noop),
             stream_(dev_null_),
             lock_(),
-            log_level_(),
-            options_(LogOpt::Default)
+            log_level_()
         { }
 
         friend class LogFactory;
@@ -259,7 +308,6 @@ namespace VT
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
         LogLevels log_level_;
-        unsigned int options_;
 
         static std::shared_ptr<detail_::onullstream> dev_null_;
     };

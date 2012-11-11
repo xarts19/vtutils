@@ -14,6 +14,12 @@ int main()
     logger().log();
     logger(VT::LogLevel::Warning).log("WARNING!!!");
 
+    logger() << "NoSpace" << "is" << "not" << "set";
+    logger().nospace() << "NoSpace" << "is" << "set";
+
+    logger().noendl() << "NoEndl is set";
+    logger() << "As you see";
+
     const VT::Logger& logger2 = log_factory.cerr("main_err", VT::LogLevel::Debug);
     logger2() << "Error stream";
 
