@@ -54,11 +54,11 @@ namespace VT
     {
         enum LogOpts
         {
-            Default     = 0x00,
-            NoSpace     = 0x01,
-            NoEndl      = 0x02,
-            NoPrefix    = 0x04,
-            NoTimestamp = 0x08
+            Default     = 0,
+            NoSpace     = (1 << 0),
+            NoEndl      = (1 << 1),
+            NoPrefix    = (1 << 2),
+            NoTimestamp = (1 << 3)
         };
     }
     typedef LogOpt::LogOpts LogOpts;
@@ -197,53 +197,32 @@ namespace VT
     class Logger
     {
     private:
-        Logger(const std::string& name, detail_::LogTypes type, std::shared_ptr<std::ostream> stream) : 
+        // usual logger
+        Logger( const std::string& name,
+                detail_::LogTypes type,
+                std::shared_ptr<std::ostream> stream) : 
             name_(name),
             type_(type),
             stream_(stream),
-            lock_(std::make_shared<CriticalSection>())
+            lock_(std::make_shared<CriticalSection>()),
+            options_(LogOpt::Default)
         { }
 
+        // noop logger
         explicit
         Logger(const std::string& name) :
             name_(name),
             type_(detail_::LogType::Noop),
             stream_(dev_null_),
-            lock_()
+            lock_(),
+            options_(LogOpt::Default)
         { }
 
         friend class LogFactory;
 
     public:
-        Logger() :
-            name_(""),
-            type_(detail_::LogType::Noop),
-            stream_(dev_null_),
-            lock_()
-        { }
-
-        Logger(const Logger& other)
-        {
-            name_ = other.name_;
-            type_ = other.type_;
-            stream_ = other.stream_;
-            lock_ = other.lock_;
-        }
-        
-        Logger& operator=(Logger rhs)
-        {
-            swap(*this, rhs);
-            return *this;
-        }
-        
-        friend void swap(Logger& first, Logger& second)
-        {
-            using std::swap;
-            swap(first.name_, second.name_);
-            swap(first.type_, second.type_);
-            swap(first.stream_, second.stream_);
-            swap(first.lock_, second.lock_);
-        }
+        // default constructed logger should not be used (here only because map requires it)
+        Logger() { }
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
@@ -275,6 +254,7 @@ namespace VT
         detail_::LogTypes type_;
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
+        unsigned int options_;
 
         static std::shared_ptr<detail_::onullstream> dev_null_;
     };
@@ -310,7 +290,7 @@ namespace VT
 
         const Logger& noop(const std::string& name)
         {
-            return loggers_[name] = Logger();
+            return loggers_[name] = Logger(name);
         }
 
         // get existing logger by name
@@ -324,10 +304,6 @@ namespace VT
         
     private:
         std::map<std::string, Logger> loggers_;
-
-        // you couldn't copy it anyways because map holds Loggers, and its copy constructor is private
-        LogFactory(const LogFactory&);
-        LogFactory& operator=(const LogFactory&);
     };
 
 }
