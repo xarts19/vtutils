@@ -6,7 +6,7 @@ int main()
     const VT::Logger& logger_file = log_factory.stream("main_file", std::make_shared<std::ofstream>("1.txt", std::ios_base::app), VT::LogLevel::Debug);
     logger_file() << "file test";
         
-    const VT::Logger& logger = log_factory.cout("main_cout", VT::LogLevel::Debug);
+    VT::Logger& logger = log_factory.cout("main_cout", VT::LogLevel::Debug);
     logger() << "Hello" << 55 << "done";
     logger() << std::hex << 11 << "done";
 
@@ -19,6 +19,13 @@ int main()
 
     logger().noendl() << "NoEndl is set";
     logger() << "As you see";
+
+    logger.set_opt(VT::LogOpt::NoEndl).set_opt(VT::LogOpt::NoSpace);
+    logger() << "NoSpace" << "and" << "NoEndl";
+    logger() << "is" << "set";
+
+    logger.reset_opts();
+    logger() << "Ok." << "Options" << "are" << "set" << "to" << "default";
 
     const VT::Logger& logger2 = log_factory.cerr("main_err", VT::LogLevel::Debug);
     logger2() << "Error stream";

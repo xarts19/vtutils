@@ -15,7 +15,6 @@
 // TODO:
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
-//   * default options for logger (no space, no endl, no prefix, no timestamp)
 //   * implement something similar to printf
 //   * add prefix / timestamp
 //   * add flag to disable locking
@@ -130,7 +129,7 @@ namespace VT
             explicit
             LogWorker(std::ostream& stream,
                       CriticalSection* lock = NULL,
-                      LogOpts options = LogOpt::Default) :
+                      unsigned int options = LogOpt::Default) :
                 stream_(stream),
                 lock_(lock),
                 valid_(true),
@@ -255,7 +254,8 @@ namespace VT
             type_(type),
             stream_(stream),
             lock_(std::make_shared<CriticalSection>()),
-            log_level_(level)
+            log_level_(level),
+            default_opts_(LogOpt::Default)
         { }
 
         // noop logger
@@ -265,7 +265,8 @@ namespace VT
             type_(detail_::LogType::Noop),
             stream_(dev_null_),
             lock_(),
-            log_level_()
+            log_level_(),
+            default_opts_(LogOpt::Default)
         { }
 
         friend class LogFactory;
@@ -273,6 +274,24 @@ namespace VT
     public:
         // default constructed logger should not be used (here only because map requires it)
         Logger() { }
+
+        Logger& set_opt(LogOpts options)
+        {
+            default_opts_ |= options;
+            return *this;
+        }
+
+        Logger& unset_opt(LogOpts options)
+        {
+            default_opts_ &= ~options;
+            return *this;
+        }
+
+        Logger& reset_opts()
+        {
+            default_opts_ = LogOpt::Default;
+            return *this;
+        }
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
@@ -285,13 +304,13 @@ namespace VT
             {
             case detail_::LogType::Custom:
                 assert(stream_);
-                return detail_::LogWorker(*stream_, lock_.get());
+                return detail_::LogWorker(*stream_, lock_.get(), default_opts_);
 
             case detail_::LogType::Cout:
-                return detail_::LogWorker(std::cout, lock_.get());
+                return detail_::LogWorker(std::cout, lock_.get(), default_opts_);
 
             case detail_::LogType::Cerr:
-                return detail_::LogWorker(std::cerr, lock_.get());
+                return detail_::LogWorker(std::cerr, lock_.get(), default_opts_);
 
             case detail_::LogType::Noop:
                 return detail_::LogWorker(*dev_null_);
@@ -308,6 +327,7 @@ namespace VT
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
         LogLevels log_level_;
+        unsigned int default_opts_;
 
         static std::shared_ptr<detail_::onullstream> dev_null_;
     };
@@ -326,28 +346,28 @@ namespace VT
             Use    get("logger_name")    to retrieve existing logger
         */
 
-        const Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream, LogLevels level = LogLevel::Debug)
+        Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream, LogLevels level = LogLevel::Debug)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Custom, stream, level);
         }
 
-        const Logger& cout(const std::string& name, LogLevels level = LogLevel::Debug)
+        Logger& cout(const std::string& name, LogLevels level = LogLevel::Debug)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Cout, std::shared_ptr<std::ostream>(), level);
         }
 
-        const Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug)
+        Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug)
         {
             return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>(), level);
         }
 
-        const Logger& noop(const std::string& name)
+        Logger& noop(const std::string& name)
         {
             return loggers_[name] = Logger(name);
         }
 
         // get existing logger by name
-        const Logger& get(const std::string& name) const
+        Logger& get(const std::string& name)
         {
             auto it = loggers_.find(name);
             if (it == loggers_.end())
