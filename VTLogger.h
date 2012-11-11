@@ -1,3 +1,6 @@
+//
+// DEPRECATED. Use VTCPPLogger. Left for backward compatibility
+//
 #pragma once
 #pragma warning( disable : 4996 )
 
@@ -8,11 +11,17 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+//
+// DEPRECATED. Use VTCPPLogger. Left for backward compatibility
+//
 namespace VT
 {
 
     std::string current_date_time();
 
+    //
+    // DEPRECATED. Use VTCPPLogger. Left for backward compatibility
+    //
     class Logger
     {
     public:

@@ -23,29 +23,8 @@
 //   * add flag to disable locking
 
 /*
-
     Example:
-        VT::LogFactory log_factory;
-
-        VT::Logger& logger1 = log_factory.stream("main_cout", std::make_shared<std::ofstream>("1.txt"));
-        VT::Logger& logger2 = log_factory.cout("main");
-
-        // same as logger2
-        VT::Logger& logger3 = log_factory.get("main");
-
-        // logger automatically appends std::endl after last token and flushes output
-        // as well as adds spaces between tokens
-
-        logger1() << "Hello " << 55 << " done";
-        logger1() << std::hex << 11 << " done";
-
-        logger1().log("smth", " is ", 25, " times ", std::hex, 12, " wrong");
-        logger1().log();
-        logger1().log("Nothing");
-
-        VT::Logger& logger4 = log_factory.noop("noop");
-        logger4() << "You should not see this";
-
+        See VTCPPLoggerTest.cpp for example usage
 */
 
 namespace VT
@@ -53,14 +32,8 @@ namespace VT
     // forward declareations
     class Logger;
     class LogFactory;
-
-    // implementation details
-    namespace detail_
-    {
-        class LogWorker;
-    }
-
     
+
     // enumerations
 
     namespace LogLevel
@@ -81,13 +54,17 @@ namespace VT
     {
         enum LogOpts
         {
-            Default = 0x00,
-            NoSpace = 0x01,
-            NoEndl  = 0x02
+            Default     = 0x00,
+            NoSpace     = 0x01,
+            NoEndl      = 0x02,
+            NoPrefix    = 0x04,
+            NoTimestamp = 0x08
         };
     }
     typedef LogOpt::LogOpts LogOpts;
 
+
+    // implementation details
     namespace detail_
     {
         namespace LogType
@@ -101,12 +78,7 @@ namespace VT
             };
         }
         typedef LogType::LogTypes LogTypes;
-    }
 
-
-    // implementation details
-    namespace detail_
-    {
 
         template <class cT, class traits = std::char_traits<cT> >
         class basic_nullbuf: public std::basic_streambuf<cT, traits> {
@@ -352,6 +324,10 @@ namespace VT
         
     private:
         std::map<std::string, Logger> loggers_;
+
+        // you couldn't copy it anyways because map holds Loggers, and its copy constructor is private
+        LogFactory(const LogFactory&);
+        LogFactory& operator=(const LogFactory&);
     };
 
 }
