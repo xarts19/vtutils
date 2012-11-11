@@ -13,8 +13,6 @@
 #include <assert.h>
 
 // TODO:
-//   * implement log levels
-//      * if log level < set log level => instantiate LogWorker with nullstream
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
 //   * pass options to log factory as bitflags (no space, no endl, no prefix, no timestamp)
@@ -200,11 +198,13 @@ namespace VT
         // usual logger
         Logger( const std::string& name,
                 detail_::LogTypes type,
-                std::shared_ptr<std::ostream> stream) : 
+                std::shared_ptr<std::ostream> stream,
+                LogLevels level) : 
             name_(name),
             type_(type),
             stream_(stream),
             lock_(std::make_shared<CriticalSection>()),
+            log_level_(level),
             options_(LogOpt::Default)
         { }
 
@@ -215,6 +215,7 @@ namespace VT
             type_(detail_::LogType::Noop),
             stream_(dev_null_),
             lock_(),
+            log_level_(),
             options_(LogOpt::Default)
         { }
 
@@ -226,8 +227,11 @@ namespace VT
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
-        detail_::LogWorker operator()() const
+        detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const
         {
+            if (level < log_level_)
+                return detail_::LogWorker(*dev_null_);
+
             switch (type_)
             {
             case detail_::LogType::Custom:
@@ -254,6 +258,7 @@ namespace VT
         detail_::LogTypes type_;
         std::shared_ptr<std::ostream> stream_;
         std::shared_ptr<CriticalSection> lock_;
+        LogLevels log_level_;
         unsigned int options_;
 
         static std::shared_ptr<detail_::onullstream> dev_null_;
@@ -273,19 +278,19 @@ namespace VT
             Use    get("logger_name")    to retrieve existing logger
         */
 
-        const Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream)
+        const Logger& stream(const std::string& name, std::shared_ptr<std::ostream> stream, LogLevels level = LogLevel::Debug)
         {
-            return loggers_[name] = Logger(name, detail_::LogType::Custom, stream);
+            return loggers_[name] = Logger(name, detail_::LogType::Custom, stream, level);
         }
 
-        const Logger& cout(const std::string& name)
+        const Logger& cout(const std::string& name, LogLevels level = LogLevel::Debug)
         {
-            return loggers_[name] = Logger(name, detail_::LogType::Cout, std::shared_ptr<std::ostream>());
+            return loggers_[name] = Logger(name, detail_::LogType::Cout, std::shared_ptr<std::ostream>(), level);
         }
 
-        const Logger& cerr(const std::string& name)
+        const Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug)
         {
-            return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>());
+            return loggers_[name] = Logger(name, detail_::LogType::Cerr, std::shared_ptr<std::ostream>(), level);
         }
 
         const Logger& noop(const std::string& name)
