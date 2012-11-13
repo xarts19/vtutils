@@ -11,12 +11,14 @@
 #include <exception>
 
 #include <assert.h>
+#include <time.h>
 
 // TODO:
 //   * implement coloring (separate implementations for each platform)
 //   * log to multiple streams at the same time
 //   * implement something similar to printf
-//   * add prefix / timestamp
+//   * add custom timestamp formatting
+//   * move to cpp
 
 /*
     Example:
@@ -77,6 +79,36 @@ namespace VT
         typedef LogType::LogTypes LogTypes;
 
 
+        inline const char* getLogLevel(LogLevels l)
+        {
+            switch (l)
+            {
+            case LogLevels::Debug:
+                return "Debug   ";
+            case LogLevels::Info:
+                return "Info    ";
+            case LogLevels::Warning:
+                return "Warning ";
+            case LogLevels::Error:
+                return "Error   ";
+            case LogLevels::Critical:
+                return "Critical";
+            default:
+                return "Unknown ";
+            }
+        }
+
+
+        inline std::string createTimestamp()
+        {
+            time_t     now      = time( 0 );
+            struct tm  timeinfo = *localtime( &now );
+            char       buf[80];
+            strftime( buf, sizeof( buf ), "%d/%m/%y %H:%M:%S", &timeinfo );
+            return buf;
+        }
+
+
         template <class cT, class traits = std::char_traits<cT> >
         class basic_nullbuf: public std::basic_streambuf<cT, traits> {
             typename traits::int_type overflow(typename traits::int_type c)
@@ -122,27 +154,39 @@ namespace VT
                 options_ |= opt;
             }
 
+            LogWorker(const LogWorker& other);
+            LogWorker& operator=(const LogWorker& rhs);
+
+        public:
+
             // don't plan any funny business
             // users can't create LogWorkers
             // and besides, it's defined in detail_ namespace, so hands off!!!
             explicit
             LogWorker(std::ostream& stream,
                       CriticalSection* lock = NULL,
+                      LogLevels msg_level = LogLevel::Debug,
                       unsigned int options = LogOpt::Default) :
                 stream_(stream),
                 lock_(lock),
                 valid_(true),
+                msg_level_(msg_level),
                 options_(options)
             {
                 if (lock_) lock_->enter();
+
+                if (not_set(LogOpt::NoTimestamp))
+                    *this << createTimestamp();
+
+                if (is_set(LogOpt::NoSpace))
+                    *this << " ";
+
+                if (not_set(LogOpt::NoPrefix))
+                    *this << getLogLevel(msg_level_);
+
+                if (is_set(LogOpt::NoSpace))
+                    *this << " ";
             }
-        
-            LogWorker(const LogWorker& other);
-            LogWorker& operator=(const LogWorker& rhs);
-
-            friend class Logger;
-
-        public:
 
             // just in case RVO will not be used
             LogWorker(LogWorker&& other) :
@@ -235,6 +279,7 @@ namespace VT
             std::ostream& stream_;
             CriticalSection* lock_;     // if lock_ is NULL - don't use locking
             bool valid_;
+            LogLevels msg_level_;
             unsigned int options_;
         };
 
@@ -317,13 +362,13 @@ namespace VT
             {
             case detail_::LogType::Custom:
                 assert(stream_);
-                return detail_::LogWorker(*stream_, lock, default_opts_);
+                return detail_::LogWorker(*stream_, lock, level, default_opts_);
 
             case detail_::LogType::Cout:
-                return detail_::LogWorker(std::cout, lock, default_opts_);
+                return detail_::LogWorker(std::cout, lock, level, default_opts_);
 
             case detail_::LogType::Cerr:
-                return detail_::LogWorker(std::cerr, lock, default_opts_);
+                return detail_::LogWorker(std::cerr, lock, level, default_opts_);
 
             case detail_::LogType::Noop:
                 return detail_::LogWorker(*dev_null_);
