@@ -1,9 +1,15 @@
 #include "VTCPPLogger.h"
 
+#include <fstream>
+
 int main()
 {
     VT::LogFactory log_factory;
-    const VT::Logger& logger_file = log_factory.stream("main_file", std::make_shared<std::ofstream>("1.txt", std::ios_base::app), VT::LogLevel::Debug);
+    const VT::Logger& logger_file =
+        log_factory.stream("main_file",
+                           std::make_shared<std::ofstream>("1.txt", std::ios_base::app),
+                           VT::LogLevel::Debug);
+
     logger_file() << "file test";
         
     VT::Logger& logger = log_factory.cout("main_cout", VT::LogLevel::Debug);
