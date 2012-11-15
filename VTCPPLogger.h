@@ -44,7 +44,7 @@ namespace VT
 
     namespace LogOpt
     {
-        enum LogOpts_
+        enum LogOpts_ : unsigned int
         {
             Default     = 0u,
             NoSpace     = (1u << 0),
@@ -73,6 +73,9 @@ namespace VT
         typedef LogType::LogTypes_ LogTypes;
 
 
+        struct LoggerData;
+
+
         template <class cT, class traits = std::char_traits<cT> >
         class basic_nullbuf: public std::basic_streambuf<cT, traits> {
             typename traits::int_type overflow(typename traits::int_type c)
@@ -95,6 +98,7 @@ namespace VT
         };
         typedef basic_onullstream<char> onullstream;
         typedef basic_onullstream<wchar_t> wonullstream;
+        extern std::shared_ptr<onullstream> dev_null_;
 
 
         class LogWorker
@@ -172,16 +176,9 @@ namespace VT
     class Logger
     {
     private:
-        std::string name_;
-        detail_::LogTypes type_;
-        std::shared_ptr<std::ostream> stream_;
-        std::shared_ptr<CriticalSection> lock_;
-        bool use_lock_;
-        LogLevels log_level_;
-        unsigned int default_opts_;
+        std::shared_ptr<detail_::LoggerData> pimpl_;
 
-    private:
-        static std::shared_ptr<detail_::onullstream> dev_null_;
+        std::string name_;
 
     private:
         // usual logger
@@ -199,13 +196,17 @@ namespace VT
     public:
         // default constructed logger should not be used (here only because map requires it)
         Logger() { }
+        ~Logger();
+
+        Logger(const Logger& other);
+        Logger& operator=(const Logger& rhs);
 
         Logger& set_opt(LogOpts options);
         Logger& unset_opt(LogOpts options);
         Logger& reset_opts();
 
-        inline void disable_locking() { use_lock_ = false; }
-        inline void enable_locking() { use_lock_ = true; }
+        void disable_locking();
+        void enable_locking();
 
         // use like this: logger() << "Hello " << std::hex << 10 << " world";
         // alternative syntax: logger().log("Hello ", std::hex, 10, " world");

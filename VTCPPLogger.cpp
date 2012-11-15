@@ -7,9 +7,38 @@
 #include <assert.h>
 
 // sink output into void
-std::shared_ptr<VT::detail_::onullstream> VT::Logger::dev_null_ = 
+std::shared_ptr<VT::detail_::onullstream> VT::detail_::dev_null_ = 
     std::shared_ptr<VT::detail_::onullstream>(new VT::detail_::onullstream());
 
+namespace VT
+{
+    namespace detail_
+    {
+        struct LoggerData
+        {
+            LoggerData() :
+                type_       (LogType::Noop),
+                stream_     (dev_null_),
+                lock_       (),
+                use_lock_   (false),
+                log_level_  (LogLevel::Critical),
+                default_opts_(LogOpt::Default)
+            { }
+
+            VT::detail_::LogTypes type_;
+            std::shared_ptr<std::ostream> stream_;
+            std::shared_ptr<VT::CriticalSection> lock_;
+            bool use_lock_;
+            VT::LogLevels log_level_;
+            unsigned int default_opts_;
+        };
+    }
+}
+
+using VT::detail_::LoggerData;
+using VT::detail_::LogWorker;
+using VT::CriticalSection;
+using VT::LogLevels;
 
 std::string createTimestamp()
 {
@@ -42,7 +71,7 @@ const char* getLogLevel(VT::LogLevels l)
 }
 
 
-VT::detail_::LogWorker::LogWorker(
+LogWorker::LogWorker(
             std::ostream& stream,
             CriticalSection* lock,
             LogLevels msg_level,
@@ -151,69 +180,88 @@ VT::Logger::Logger(
         detail_::LogTypes type,
         std::shared_ptr<std::ostream> stream,
         LogLevels level) : 
-    name_       (name),
-    type_       (type),
-    stream_     (stream),
-    lock_       (std::make_shared<CriticalSection>()),
-    use_lock_   (true),
-    log_level_  (level),
-    default_opts_(LogOpt::Default)
-{ }
+    name_ (name),
+    pimpl_(std::make_shared<LoggerData>())
+{
+    pimpl_->type_ = type;
+    pimpl_->stream_ = stream;
+    pimpl_->log_level_ = level;
+}
 
 // noop logger
 VT::Logger::Logger(const std::string& name) :
-    name_       (name),
-    type_       (detail_::LogType::Noop),
-    stream_     (dev_null_),
-    lock_       (),
-    use_lock_   (false),
-    log_level_  (),
-    default_opts_(LogOpt::Default)
+    name_ (name),
+    pimpl_(std::make_shared<LoggerData>())
 { }
+
+VT::Logger::~Logger()
+{ }
+
+VT::Logger::Logger(const Logger& other) :
+    name_ (other.name_),
+    pimpl_(other.pimpl_)
+{ }
+
+VT::Logger& VT::Logger::operator=(const Logger& rhs)
+{
+    name_ = rhs.name_;
+    pimpl_ = rhs.pimpl_;
+    return *this;
+}
 
 VT::Logger& VT::Logger::set_opt(LogOpts options)
 {
-    default_opts_ |= options;
+    pimpl_->default_opts_ |= options;
     return *this;
 }
 
 VT::Logger& VT::Logger::unset_opt(LogOpts options)
 {
-    default_opts_ &= ~options;
+    pimpl_->default_opts_ &= ~options;
     return *this;
 }
 
 VT::Logger& VT::Logger::reset_opts()
 {
-    default_opts_ = LogOpt::Default;
+    pimpl_->default_opts_ = LogOpt::Default;
     return *this;
+}
+
+void VT::Logger::disable_locking()
+{
+    pimpl_->use_lock_ = false;
+}
+
+void VT::Logger::enable_locking()
+{
+    pimpl_->use_lock_ = true;
 }
 
 VT::detail_::LogWorker VT::Logger::operator()(LogLevels level) const
 {
-    if (level < log_level_)
-        return detail_::LogWorker(*dev_null_);
+    if (level < pimpl_->log_level_)
+        return detail_::LogWorker(*detail_::dev_null_);
 
-    CriticalSection* lock = (use_lock_ ? lock_.get() : NULL);
+    CriticalSection* lock = (pimpl_->use_lock_ ? pimpl_->lock_.get() : NULL);
 
-    switch (type_)
+    switch (pimpl_->type_)
     {
     case detail_::LogType::Custom:
-        assert(stream_);
-        return detail_::LogWorker(*stream_, lock, level, default_opts_);
+        assert(pimpl_->stream_);
+        return detail_::LogWorker(*(pimpl_->stream_), lock, level, pimpl_->default_opts_);
 
     case detail_::LogType::Cout:
-        return detail_::LogWorker(std::cout, lock, level, default_opts_);
+        return detail_::LogWorker(std::cout, lock, level, pimpl_->default_opts_);
 
     case detail_::LogType::Cerr:
-        return detail_::LogWorker(std::cerr, lock, level, default_opts_);
+        return detail_::LogWorker(std::cerr, lock, level, pimpl_->default_opts_);
 
     case detail_::LogType::Noop:
-        return detail_::LogWorker(*dev_null_);
+        return detail_::LogWorker(*detail_::dev_null_);
 
     default:
         assert(0);
-        return detail_::LogWorker(*dev_null_);
+        return detail_::LogWorker(*detail_::dev_null_);
     }
 }
 
