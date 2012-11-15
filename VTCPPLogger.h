@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 
 // TODO:
@@ -75,7 +76,7 @@ namespace VT
 
         struct LoggerData;
 
-
+        
         template <class cT, class traits = std::char_traits<cT> >
         class basic_nullbuf: public std::basic_streambuf<cT, traits> {
             typename traits::int_type overflow(typename traits::int_type c)
@@ -99,13 +100,12 @@ namespace VT
         typedef basic_onullstream<char> onullstream;
         typedef basic_onullstream<wchar_t> wonullstream;
         extern std::shared_ptr<onullstream> dev_null_;
-
+        
 
         class LogWorker
         {
         private:
-            std::ostream& stream_;
-            CriticalSection* lock_;     // if lock_ is NULL - don't use locking
+            std::vector<LoggerData*> loggers_;
             bool valid_;                // if not valid - this object has been moved
             LogLevels msg_level_;
             unsigned int options_;
@@ -116,14 +116,15 @@ namespace VT
             inline bool not_set(LogOpts opt) const;
             inline void set(LogOpts opt);
 
+            std::ostream& get_stream(LoggerData* data);
+
             // no copying allowed (use move)
             LogWorker(const LogWorker& other);
             LogWorker& operator=(const LogWorker& rhs);
 
         public:
             explicit
-            LogWorker(std::ostream& stream,
-                      CriticalSection* lock = NULL,
+            LogWorker(std::vector<LoggerData*> loggers = std::vector<LoggerData*>(),
                       LogLevels msg_level = LogLevel::Debug,
                       unsigned int options = LogOpt::Default);
 
@@ -145,9 +146,13 @@ namespace VT
             template <typename T>
             LogWorker& operator<<(T arg)
             {
-                stream_ << arg;
-                if (not_set(LogOpt::NoSpace))
-                    stream_ << " ";
+                for (LoggerData* l : loggers_)
+                {
+                    std::ostream& stream_ = get_stream(l);
+                    stream_ << arg;
+                    if (not_set(LogOpt::NoSpace))
+                        stream_ << " ";
+                }
                 return *this;
             }
 
