@@ -93,17 +93,13 @@ LogWorker::LogWorker(
     {
         if (l->lock_ && l->use_lock_) l->lock_->enter();
 
-        if (not_set(l, LogOpt::NoTimestamp))
-            *this << createTimestamp();
+        std::ostream& stream_ = get_stream(l);
 
-        if (is_set(l, LogOpt::NoSpace))
-            *this << " ";
+        if (not_set(l, LogOpt::NoTimestamp))
+            stream_ << createTimestamp() << " ";
 
         if (not_set(l, LogOpt::NoPrefix))
-            *this << getLogLevel(msg_level_);
-
-        if (is_set(l, LogOpt::NoSpace))
-            *this << " ";
+            stream_ << getLogLevel(msg_level_) << " ";
     }
 }
 
@@ -123,10 +119,12 @@ LogWorker::~LogWorker()
     {
         for (LoggerData* l : loggers_)
         {
+            std::ostream& stream_ = get_stream(l);
+
             if (not_set(l, LogOpt::NoEndl))
-                *this << std::endl;
+                stream_ << std::endl;
             else if (not_set(l, LogOpt::NoFlush))
-                *this << std::flush;
+                stream_ << std::flush;
 
             if (l->lock_ && l->use_lock_) l->lock_->leave();
         }
@@ -341,19 +339,6 @@ VT::Logger& VT::LogFactory::cerr(const string& name,
 VT::Logger& VT::LogFactory::noop(const string& name)
 {
     return loggers_[name] = Logger(name);
-}
-
-VT::MetaLogger& VT::LogFactory::meta(std::string name, std::vector<std::string> loggers)
-{
-    MetaLogger ml(name);
-    for (const std::string& logname : loggers)
-    {
-        auto it = loggers_.find(logname);
-        if (it == loggers_.end())
-            throw std::runtime_error("Logger \"" + name + "\" does not exist");
-        ml.loggers_.push_back(it->second);
-    }
-    return metaloggers_[name] = ml;
 }
 
 VT::Logger& VT::LogFactory::get(const string& name)

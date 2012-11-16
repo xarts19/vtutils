@@ -13,7 +13,6 @@
 //   * implement coloring (separate implementations for each platform)
 //   * implement something similar to printf
 //   * add custom timestamp formatting
-//   * maybe add variadic construction for metalogger
 
 /*
     Example:
@@ -245,6 +244,21 @@ namespace VT
         std::map<std::string, Logger> loggers_;
         std::map<std::string, MetaLogger> metaloggers_;
 
+    private:
+        void meta_helper(MetaLogger&) { }
+
+        template <typename... Args>
+        void meta_helper(MetaLogger& ml, std::string logname, Args... logger_names)
+        {
+            auto it = loggers_.find(logname);
+            if (it == loggers_.end())
+                throw std::runtime_error("Logger \"" + logname + "\" does not exist");
+            ml.loggers_.push_back(it->second);
+
+            meta_helper(ml, logger_names...);
+        }
+
+
     public:
         /*
             Use    stream("logger_name", make_shared<std::ofstream>("filename"))   to create file logger
@@ -262,7 +276,14 @@ namespace VT
         Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug);
         Logger& noop(const std::string& name);
 
-        MetaLogger& meta(std::string name, std::vector<std::string> loggers);
+        
+        template <typename... Args>
+        MetaLogger& meta(std::string name, Args... logger_names)
+        {
+            MetaLogger ml(name);
+            meta_helper(ml, logger_names...);
+            return metaloggers_[name] = ml;
+        }
 
         // get existing logger by name
         Logger& get(const std::string& name);
