@@ -41,6 +41,13 @@ int main()
     const VT::Logger& logger3 = log_factory.noop("main_noop");
     logger3() << "You should not see this";
 
+    std::vector<std::string> ls;
+    ls.push_back("main_err");
+    ls.push_back("main_cout");
+    VT::MetaLogger& ml = log_factory.meta("meta", ls);
+
+    ml() << "MetaLogger test";
+
     getchar();
     return 0;
 }

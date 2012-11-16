@@ -29,6 +29,7 @@ namespace VT
         struct LoggerData
         {
             LoggerData() :
+                name_       (),
                 type_       (LogType::Noop),
                 stream_     (),
                 lock_       (),
@@ -37,6 +38,7 @@ namespace VT
                 default_opts_(LogOpt::Default)
             { }
 
+            std::string name_;
             VT::detail_::LogTypes type_;
             std::shared_ptr<ostream> stream_;
             std::shared_ptr<VT::CriticalSection> lock_;
@@ -90,19 +92,19 @@ LogWorker::LogWorker(
     for (LoggerData* l : loggers_)
     {
         if (l->lock_ && l->use_lock_) l->lock_->enter();
+
+        if (not_set(l, LogOpt::NoTimestamp))
+            *this << createTimestamp();
+
+        if (is_set(l, LogOpt::NoSpace))
+            *this << " ";
+
+        if (not_set(l, LogOpt::NoPrefix))
+            *this << getLogLevel(msg_level_);
+
+        if (is_set(l, LogOpt::NoSpace))
+            *this << " ";
     }
-
-    if (not_set(LogOpt::NoTimestamp))
-        *this << createTimestamp();
-
-    if (is_set(LogOpt::NoSpace))
-        *this << " ";
-
-    if (not_set(LogOpt::NoPrefix))
-        *this << getLogLevel(msg_level_);
-
-    if (is_set(LogOpt::NoSpace))
-        *this << " ";
 }
 
 LogWorker::LogWorker(LogWorker&& other) :
@@ -119,26 +121,28 @@ LogWorker::~LogWorker()
 {
     if (valid_)
     {
-        if (not_set(LogOpt::NoEndl))
-            *this << std::endl;
-        else if (not_set(LogOpt::NoFlush))
-            *this << std::flush;
-
         for (LoggerData* l : loggers_)
         {
+            if (not_set(l, LogOpt::NoEndl))
+                *this << std::endl;
+            else if (not_set(l, LogOpt::NoFlush))
+                *this << std::flush;
+
             if (l->lock_ && l->use_lock_) l->lock_->leave();
         }
     }
 }
 
-bool LogWorker::is_set(LogOpts opt) const
+bool LogWorker::is_set(LoggerData* l, LogOpts opt) const
 {
-    return ( (options_ & opt) == opt );
+    return ( (options_ & opt) == opt || (l->default_opts_ & opt) == opt );
 }
-bool LogWorker::not_set(LogOpts opt) const
+
+bool LogWorker::not_set(LoggerData* l, LogOpts opt) const
 {
-    return ( (options_ & opt) != opt );
+    return ( (options_ & opt) != opt && (l->default_opts_ & opt) != opt );
 }
+
 void LogWorker::set(LogOpts opt)
 {
     options_ |= opt;
@@ -215,9 +219,9 @@ VT::Logger::Logger(
         detail_::LogTypes type,
         std::shared_ptr<ostream> stream,
         LogLevels level) : 
-    name_ (name),
     pimpl_(std::make_shared<LoggerData>())
 {
+    pimpl_->name_ = name;
     pimpl_->type_ = type;
     pimpl_->stream_ = stream;
     pimpl_->log_level_ = level;
@@ -225,21 +229,27 @@ VT::Logger::Logger(
 
 // noop logger
 VT::Logger::Logger(const string& name) :
-    name_ (name),
     pimpl_(std::make_shared<LoggerData>())
-{ }
+{
+    pimpl_->name_ = name;
+}
+
+bool VT::Logger::has_actual_stream() const
+{
+    return (pimpl_->type_ == detail_::LogType::Custom ||
+            pimpl_->type_ == detail_::LogType::Cout ||
+            pimpl_->type_ == detail_::LogType::Cerr);
+}
 
 VT::Logger::~Logger()
 { }
 
 VT::Logger::Logger(const Logger& other) :
-    name_ (other.name_),
     pimpl_(other.pimpl_)
 { }
 
 VT::Logger& VT::Logger::operator=(const Logger& rhs)
 {
-    name_ = rhs.name_;
     pimpl_ = rhs.pimpl_;
     return *this;
 }
@@ -277,9 +287,7 @@ LogWorker VT::Logger::operator()(LogLevels level) const
     if (level < pimpl_->log_level_)
         return detail_::LogWorker();
 
-    if (pimpl_->type_ != detail_::LogType::Custom &&
-        pimpl_->type_ != detail_::LogType::Cout &&
-        pimpl_->type_ != detail_::LogType::Cerr )
+    if (!has_actual_stream())
     {
         return detail_::LogWorker();
     }
@@ -288,6 +296,20 @@ LogWorker VT::Logger::operator()(LogLevels level) const
     ls.push_back(pimpl_.get());
 
     return detail_::LogWorker(ls, level, pimpl_->default_opts_);
+}
+
+
+LogWorker VT::MetaLogger::operator()(LogLevels level) const
+{
+    vector<LoggerData*> ls;
+    
+    for (auto logger : loggers_)
+    {
+        if (level >= logger.pimpl_->log_level_ && logger.has_actual_stream())
+            ls.push_back(logger.pimpl_.get());
+    }
+
+    return detail_::LogWorker(ls, level, LogOpt::Default);
 }
 
 
@@ -319,6 +341,19 @@ VT::Logger& VT::LogFactory::cerr(const string& name,
 VT::Logger& VT::LogFactory::noop(const string& name)
 {
     return loggers_[name] = Logger(name);
+}
+
+VT::MetaLogger& VT::LogFactory::meta(std::string name, std::vector<std::string> loggers)
+{
+    MetaLogger ml(name);
+    for (const std::string& logname : loggers)
+    {
+        auto it = loggers_.find(logname);
+        if (it == loggers_.end())
+            throw std::runtime_error("Logger \"" + name + "\" does not exist");
+        ml.loggers_.push_back(it->second);
+    }
+    return metaloggers_[name] = ml;
 }
 
 VT::Logger& VT::LogFactory::get(const string& name)

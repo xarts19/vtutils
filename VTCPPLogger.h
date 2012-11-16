@@ -11,9 +11,9 @@
 
 // TODO:
 //   * implement coloring (separate implementations for each platform)
-//   * log to multiple streams at the same time
 //   * implement something similar to printf
 //   * add custom timestamp formatting
+//   * maybe add variadic construction for metalogger
 
 /*
     Example:
@@ -112,8 +112,8 @@ namespace VT
 
         private:
             // helpers
-            inline bool is_set(LogOpts opt) const;
-            inline bool not_set(LogOpts opt) const;
+            inline bool is_set(LoggerData* l, LogOpts opt) const;
+            inline bool not_set(LoggerData* l, LogOpts opt) const;
             inline void set(LogOpts opt);
 
             std::ostream& get_stream(LoggerData* data);
@@ -150,7 +150,7 @@ namespace VT
                 {
                     std::ostream& stream_ = get_stream(l);
                     stream_ << arg;
-                    if (not_set(LogOpt::NoSpace))
+                    if (not_set(l, LogOpt::NoSpace))
                         stream_ << " ";
                 }
                 return *this;
@@ -183,8 +183,6 @@ namespace VT
     private:
         std::shared_ptr<detail_::LoggerData> pimpl_;
 
-        std::string name_;
-
     private:
         // usual logger
         Logger( const std::string& name,
@@ -196,7 +194,10 @@ namespace VT
         explicit
         Logger(const std::string& name);
 
+        bool has_actual_stream() const;
+
         friend class LogFactory;
+        friend class MetaLogger;
 
     public:
         // default constructed logger should not be used (here only because map requires it)
@@ -219,11 +220,30 @@ namespace VT
     };
     
 
+    class MetaLogger
+    {
+    private:
+        std::string name_;
+        std::vector<Logger> loggers_;
+
+        friend LogFactory;
+
+    private:
+        MetaLogger(std::string name) : name_(name) { }
+
+    public:
+        MetaLogger() { }
+
+        detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const;
+    };
+
+
     // you should probably create and store a static instance of this class in your application
     class LogFactory
     {
     private:
         std::map<std::string, Logger> loggers_;
+        std::map<std::string, MetaLogger> metaloggers_;
 
     public:
         /*
@@ -241,6 +261,8 @@ namespace VT
         Logger& cout(const std::string& name, LogLevels level = LogLevel::Debug);
         Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug);
         Logger& noop(const std::string& name);
+
+        MetaLogger& meta(std::string name, std::vector<std::string> loggers);
 
         // get existing logger by name
         Logger& get(const std::string& name);
