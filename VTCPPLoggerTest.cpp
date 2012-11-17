@@ -28,12 +28,18 @@ int main()
     logger().noendl() << "NoEndl is set";
     logger() << "As you see";
 
-    logger.set_opt(VT::LogOpt::NoEndl).set_opt(VT::LogOpt::NoSpace);
+    logger.set_opt(VT::LogOpt::NoEndl)
+          .set_opt(VT::LogOpt::NoSpace);
+
     logger() << "NoSpace" << "and" << "NoEndl";
     logger() << "is" << "set";
 
     logger.reset_opts();
     logger() << "Ok." << "Options" << "are" << "set" << "to" << "default";
+
+    logger.set_naked();
+    logger() << "Naked " << "logger " << "message\n";
+    logger.reset_opts();
 
     const VT::Logger& logger2 = log_factory.cerr("main_err", VT::LogLevel::Debug);
     logger2() << "Error stream";
@@ -44,6 +50,8 @@ int main()
     VT::MetaLogger& ml = log_factory.meta("meta", "main_err", "main_cout");
 
     ml() << "MetaLogger test";
+
+    ml = log_factory.get_meta("meta");
 
     getchar();
     return 0;

@@ -98,7 +98,10 @@ LogWorker::LogWorker(
         if (not_set(l, LogOpt::NoTimestamp))
             stream_ << createTimestamp() << " ";
 
-        if (not_set(l, LogOpt::NoPrefix))
+        if (not_set(l, LogOpt::NoLoggerName))
+            stream_ << l->name_ << " ";
+
+        if (not_set(l, LogOpt::NoLogLevel))
             stream_ << getLogLevel(msg_level_) << " ";
     }
 }
@@ -173,20 +176,6 @@ LogWorker&
     VT::detail_::LogWorker::noendl()
 {
     set(LogOpt::NoEndl);
-    return *this;
-}
-
-LogWorker&
-    VT::detail_::LogWorker::noprefix()
-{
-    set(LogOpt::NoPrefix);
-    return *this;
-}
-
-LogWorker&
-    VT::detail_::LogWorker::notimestamp()
-{
-    set(LogOpt::NoTimestamp);
     return *this;
 }
 
@@ -270,6 +259,14 @@ VT::Logger& VT::Logger::reset_opts()
     return *this;
 }
 
+VT::Logger& VT::Logger::set_naked()
+{
+    pimpl_->default_opts_ = LogOpt::NoEndl | LogOpt::NoFlush | 
+                            LogOpt::NoLoggerName | LogOpt::NoLogLevel |
+                            LogOpt::NoSpace | LogOpt::NoTimestamp;
+    return *this;
+}
+
 void VT::Logger::disable_locking()
 {
     pimpl_->use_lock_ = false;
@@ -346,5 +343,13 @@ VT::Logger& VT::LogFactory::get(const string& name)
     auto it = loggers_.find(name);
     if (it == loggers_.end())
         throw std::runtime_error("Logger \"" + name + "\" does not exist");
+    return it->second;
+}
+
+VT::MetaLogger& VT::LogFactory::get_meta(const std::string&  name)
+{
+    auto it = metaloggers_.find(name);
+    if (it == metaloggers_.end())
+        throw std::runtime_error("MetaLogger \"" + name + "\" does not exist");
     return it->second;
 }

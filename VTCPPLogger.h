@@ -49,9 +49,10 @@ namespace VT
             Default     = 0u,
             NoSpace     = (1u << 0),
             NoEndl      = (1u << 1),
-            NoPrefix    = (1u << 2),
+            NoLogLevel  = (1u << 2),
             NoTimestamp = (1u << 3),
-            NoFlush     = (1u << 4)
+            NoFlush     = (1u << 4),
+            NoLoggerName= (1u << 5)
         };
     }
     typedef LogOpt::LogOpts_ LogOpts;
@@ -138,8 +139,6 @@ namespace VT
             // setting options
             LogWorker& nospace();
             LogWorker& noendl();
-            LogWorker& noprefix();
-            LogWorker& notimestamp();
 
             // printers
             template <typename T>
@@ -210,6 +209,8 @@ namespace VT
         Logger& unset_opt(LogOpts options);
         Logger& reset_opts();
 
+        Logger& set_naked();
+
         void disable_locking();
         void enable_locking();
 
@@ -276,9 +277,8 @@ namespace VT
         Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug);
         Logger& noop(const std::string& name);
 
-        
         template <typename... Args>
-        MetaLogger& meta(std::string name, Args... logger_names)
+        MetaLogger& meta(const std::string& name, Args... logger_names)
         {
             MetaLogger ml(name);
             meta_helper(ml, logger_names...);
@@ -287,6 +287,8 @@ namespace VT
 
         // get existing logger by name
         Logger& get(const std::string& name);
+
+        MetaLogger& get_meta(const std::string&  name);
     };
 
 }
