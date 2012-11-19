@@ -2,6 +2,7 @@
 
 #include <exception>
 #include <iostream>
+#include <iomanip>
 
 #include <time.h>
 #include <assert.h>
@@ -64,18 +65,18 @@ const char* getLogLevel(VT::LogLevels l)
     switch (l)
     {
     case VT::LogLevels::Debug:
-        return "Debug   ";
+        return "Debug";
     case VT::LogLevels::Info:
-        return "Info    ";
+        return "Info";
     case VT::LogLevels::Warning:
-        return "Warning ";
+        return "Warning";
     case VT::LogLevels::Error:
-        return "Error   ";
+        return "Error";
     case VT::LogLevels::Critical:
         return "Critical";
     default:
         assert(0);
-        return "Unknown ";
+        return "Unknown";
     }
 }
 
@@ -99,10 +100,10 @@ LogWorker::LogWorker(
             stream_ << createTimestamp() << " ";
 
         if (not_set(l, LogOpt::NoLoggerName))
-            stream_ << l->name_ << " ";
+            stream_ << "[" << l->name_ << "] ";
 
         if (not_set(l, LogOpt::NoLogLevel))
-            stream_ << getLogLevel(msg_level_) << " ";
+            stream_ << std::left << std::setw(10) << "<" + std::string(getLogLevel(msg_level_)) + ">" << " ";
     }
 }
 

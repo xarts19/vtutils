@@ -163,7 +163,7 @@ namespace VT
                 /*
                  * Recursive function to keep streaming the arguments 
                  * one at a time until the last argument is reached and 
-                 * the specialization above is called. 
+                 * the specialization below is called. 
                  */
                 (*this) << arg1;        // implement in terms of LogWorker::operator<<()
                 log(args...);
@@ -209,13 +209,14 @@ namespace VT
         Logger& unset_opt(LogOpts options);
         Logger& reset_opts();
 
+        // turn off printing any additional info (just raw text that user sends)
         Logger& set_naked();
 
         void disable_locking();
         void enable_locking();
 
-        // use like this: logger() << "Hello " << std::hex << 10 << " world";
-        // alternative syntax: logger().log("Hello ", std::hex, 10, " world");
+        // use like this: logger() << "Hello" << std::hex << 10 << "world";
+        // alternative syntax: logger().log("Hello", std::hex, 10, "world");
         detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const;
     };
     

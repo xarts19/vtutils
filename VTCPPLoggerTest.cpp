@@ -20,7 +20,11 @@ int main()
 
     logger().log("smth", "is", 25, "times", std::hex, 12, "wrong");
     logger().log();
+    logger(VT::LogLevel::Debug).log("DEBUG!!!");
+    logger(VT::LogLevel::Info).log("Info!!!");
     logger(VT::LogLevel::Warning).log("WARNING!!!");
+    logger(VT::LogLevel::Error).log("ERROR!!!");
+    logger(VT::LogLevel::Critical).log("CRITICAL!!!");
 
     logger() << "NoSpace" << "is" << "not" << "set";
     logger().nospace() << "NoSpace" << "is" << "set";
