@@ -2,8 +2,8 @@
 
 #include <vector>
 #include <map>
-#include <memory>
 #include <iostream>
+#include <exception>
 
 namespace VT
 {
@@ -13,29 +13,39 @@ namespace VT
     private: // helper classes
         struct Edge
         {
-            Edge(const TNode& start, const TNode& end, const TEdge& data) :
-                start(start), end(end), data(data)
+            Edge(const TNode& end, const TEdge& data) :
+                end(end), data(data)
             { }
 
-            TEdge data;
-            TNode start;
             TNode end;
+            TEdge data;
         };
+
+    private: // typedefs
+        typedef std::vector<Edge> IncidenceList;
+
+    private: // data members
+        std::map<TNode, IncidenceList> nodes_;
+
+    private: // helper methods
+        const IncidenceList& get_inc_list(const TNode& node) const
+        {
+            auto node_pair_it = nodes_.find(node);
+            if (node_pair_it == nodes_.end())
+                throw std::runtime_error("Node does not exist");
+            return node_pair_it->second;
+        }
 
     private: // friends
         template <typename TNode, typename TEdge>
         friend std::ostream& operator<<(std::ostream& os, Graph<TNode, TEdge> graph);
 
-    private: // typedefs
-        typedef std::vector<std::shared_ptr<Edge>> IncidenceList;
-
-    private: // data members
-        std::map<TNode, IncidenceList> nodes_;
-
     public: // public interface
 
+        explicit Graph() { }
+
         /*
-            *FwdIter == TNode
+            *FwdIter ~ TNode
         */
         template <typename FwdIter>
         explicit Graph(FwdIter begin, FwdIter end)
@@ -55,46 +65,52 @@ namespace VT
                 return false;
         }
 
+        /*
+        // need to traverse whole graph to find incoming edges
+        // not optimal so not implemented
+        bool remove_node(const TNode& node)
+        {
+            return nodes_.erase(node) > 0;
+        }
+        */
+
         bool add_edge(const TNode& start, const TNode& end, const TEdge& data)
         {
-            for (auto edge_it : nodes_[start])
+            for (const Edge& edge : nodes_[start])
             {
-                if (edge_it->end == end)
-                    return false;
+                if (edge.end == end)
+                    return false;       // edge already exists
             }
-            auto edge = std::make_shared<Edge>(start, end, data);
-            nodes_[start].push_back(edge);
-            nodes_[end].push_back(edge);
+            nodes_[start].emplace_back(end, data);
             return true;
         }
 
-        TEdge& get_edge_data(const TNode& start, const TNode& end) const
+        const TEdge& get_edge_data(const TNode& start, const TNode& end) const
         {
-            auto node_pair_it = nodes_.find(start);
-            if (node_pair_it == nodes_.end())
-                throw std::exception("Node does not exist");
+            const IncidenceList& edges = get_inc_list(start);
 
-            for (auto& edge_it : node_pair_it->second)
+            for (const Edge& edge : edges)
             {
-                if (edge_it->end == end)
-                    return edge_it->data;
+                if (edge.end == end)
+                    return edge.data;
             }
 
-            throw std::exception("Edge does not exist");
+            throw std::runtime_error("Edge does not exist");
         }
 
+        /*
+            Nodes reachable from this node.
+        */
         std::vector<TNode> neighbors(const TNode& node) const
         {
             std::vector<TNode> result;
-            auto node_pair_it = nodes_.find(node);
-            if (node_pair_it == nodes_.end())
-                return result;
+
+            const IncidenceList& edges = get_inc_list(node);
 
             // iterate over incidence list
-            for (auto& edge_it : node_pair_it->second)
+            for (const Edge& edge : edges)
             {
-                if (edge_it->start == node)
-                    result.push_back(edge_it->end);
+                result.push_back(edge.end);
             }
             return result;
         }
@@ -108,8 +124,7 @@ namespace VT
             os << node.first << ": [ ";
             for (auto& edge : node.second)
             {
-                if (edge->start == node.first)
-                    os << edge->end << " (" << edge->data << ") ";
+                os << edge.end << " (" << edge.data << ") ";
             }
             os << "]" << std::endl;
         }

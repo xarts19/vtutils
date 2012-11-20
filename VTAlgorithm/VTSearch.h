@@ -91,8 +91,11 @@ namespace VT
     }
     
     /*
-        TDistFunc:  int (TNode start, TNode end, TEdge edge_data) - distance between start and end
-        THeurFunc:  int (TNode node) - approximate ditance to goal from current node (heuristic)
+        TPred:      bool is_destination(TNode);
+        TDistFunc:  int (TNode start, TNode end) - distance between start and end
+        THeurFunc:  int (TNode node) - approximate ditance to goal from this node
+                    (heuristic, should always be smaller than real distance to be admissable so that
+                    search will always find optimal solution)
     */
     template <typename TNode, typename TEdge, typename TPred, typename TDistFunc, typename THeurFunc>
     std::deque<TNode> a_star_search(const Graph<TNode, TEdge>& graph,
@@ -104,8 +107,8 @@ namespace VT
         std::set<TNode> closedset;      // the set of nodes already evaluated
         std::set<TNode> openset;        // the set of nodes to be evaluated
         
-        std::map<TNode, int> g_score;   // cost from some node along best known path to goal
-        std::map<TNode, int> f_score;   // estimated total cost from some start to goal through some node.
+        std::map<TNode, double> g_score;   // cost from some node along best known path to goal
+        std::map<TNode, double> f_score;   // estimated total cost from some start to goal through some node.
 
         std::map<TNode, TNode> came_from;   // the map of navigated nodes
 
@@ -123,7 +126,7 @@ namespace VT
                 return std::deque<TNode>(); // path not found
 
             // set current to the node in openset having the lowest f_score[] value
-            int min = std::numeric_limits<int>::max();
+            double min = std::numeric_limits<int>::max();
             for (const TNode& node: openset)
             {
                 if (f_score[node] < min)
@@ -141,7 +144,7 @@ namespace VT
                 if (closedset.count(node) > 0)
                     continue;
 
-                int tentative_g_score = g_score[current] + dist_func(current, node, graph.get_edge_data(current, node));
+                double tentative_g_score = g_score[current] + dist_func(current, node);
 
                 if (openset.count(node) == 0 || tentative_g_score < g_score[node])
                 {
