@@ -5,6 +5,10 @@
 #include <iostream>
 #include <exception>
 
+// TODO:
+//      * use custom allocator to fight memory fragmentation and slow destruction times
+//        when using huge graphs (map allocates each node separately by default)
+
 namespace VT
 {
     template <typename TNode, typename TEdge>
@@ -26,6 +30,7 @@ namespace VT
 
     private: // data members
         std::map<TNode, IncidenceList> nodes_;
+        unsigned int prealloc_edges_;
 
     private: // helper methods
         const IncidenceList& get_inc_list(const TNode& node) const
@@ -42,16 +47,23 @@ namespace VT
 
     public: // public interface
 
-        explicit Graph() { }
+        Graph() : prealloc_edges_(0) { }
 
         /*
             *FwdIter ~ TNode
         */
         template <typename FwdIter>
-        explicit Graph(FwdIter begin, FwdIter end)
+        explicit Graph(FwdIter begin, FwdIter end) : prealloc_edges_(0)
         {
             for (FwdIter it = begin; it != end; ++it)
                 nodes_[*it] = IncidenceList();
+        }
+
+        // set expected number of outgoing edges for each node so that
+        // they can be preallocated
+        void set_prealloc_edges(unsigned int min_edge_count)
+        {
+            prealloc_edges_ = min_edge_count;
         }
 
         bool add_node(const TNode& node)
@@ -59,6 +71,8 @@ namespace VT
             if (nodes_.count(node) == 0)
             {
                 nodes_[node] = IncidenceList();
+                if (prealloc_edges_)
+                    nodes_[node].reserve(prealloc_edges_);
                 return true;
             }
             else

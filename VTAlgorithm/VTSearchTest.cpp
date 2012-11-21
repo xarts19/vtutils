@@ -82,6 +82,7 @@ inline void vt_bfs_test()
 
 
     VT::Graph<Node, double> g2;
+    g2.set_prealloc_edges(8);
     int size = 1000;
     for (int i = 0; i < size; ++i)
     {

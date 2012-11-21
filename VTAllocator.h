@@ -47,4 +47,13 @@ namespace VT
         std::list<char*> free_blocks_;
     };
 
+
+    namespace detail_
+    {
+        class PoolChunk
+        {
+            
+        };
+    }
+
 };
