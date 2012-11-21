@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <memory>
 
 #if defined(_MSC_VER)
     #define TUPLE_PARAMS \
@@ -102,6 +103,10 @@ template <typename C, typename Fmt>
 template <typename T, typename Fmt>
     void print_container_helper(std::ostream& os, const T& t, std::false_type, const Fmt& fmt);
 
+template <typename T, typename Fmt>
+    void print(std::ostream& os, const std::unique_ptr<T>& t, const Fmt& fmt);
+template <typename T, typename Fmt>
+    void print(std::ostream& os, const std::shared_ptr<T>& t, const Fmt& fmt);
 
 template <typename T> void print(std::ostream& os, const T& t) {
     print(os, t, default_formatter());
@@ -184,6 +189,32 @@ template <typename T, typename Fmt>
     void print_container_helper(std::ostream& os, const T& t, std::false_type, const Fmt& fmt) {
 
     fmt.element(os, t);
+}
+
+template <typename T, typename Fmt>
+    void print(std::ostream& os, const std::unique_ptr<T>& t, const Fmt& fmt) {
+
+    if (t)
+    {
+        fmt.element(os, "unique_ptr(");
+        print(os, *t, fmt);
+        fmt.element(os, ")");
+    }
+    else
+        print(os, "nullptr", fmt);
+}
+
+template <typename T, typename Fmt>
+    void print(std::ostream& os, const std::shared_ptr<T>& t, const Fmt& fmt) {
+
+    if (t)
+    {
+        fmt.element(os, "shared_ptr(");
+        print(os, *t, fmt);
+        fmt.element(os, ")");
+    }
+    else
+        print(os, "nullptr", fmt);
 }
 
 
