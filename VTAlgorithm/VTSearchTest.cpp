@@ -51,11 +51,11 @@ inline void vt_bfs_test()
 
     auto dist = [](const Node& a, const Node& b) { double dx = a.x - b.x; double dy = a.y - b.y; return sqrt(dx*dx+dy*dy); };
 
-    /*
-        *-*-*
-        |  /|
-        *-*-*
-    */
+    //
+    //    *-*-*
+    //    |  /|
+    //    *-*-*
+    //
     Node n01 = Node(0, 1); Node n11 = Node(1, 1); Node n21 = Node(2, 1);
     Node n00 = Node(0, 0); Node n10 = Node(1, 0); Node n20 = Node(2, 0);
     VT::Graph<Node, double> g1;
@@ -82,8 +82,7 @@ inline void vt_bfs_test()
 
 
     VT::Graph<Node, double> g2;
-    g2.set_prealloc_edges(8);
-    int size = 1000;
+    int size = 100;
     for (int i = 0; i < size; ++i)
     {
         for (int j = 0; j < size; ++j)
@@ -107,6 +106,8 @@ inline void vt_bfs_test()
                                           [&](const Node& node) { return dist(node, Node(size-1, size-1)); }
                          );
     print_line(cout, r);
+    
+    std::map<int, std::unique_ptr<int>> a;
 }
 
 int main()

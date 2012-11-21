@@ -142,7 +142,7 @@ namespace VT
             for (auto& node : graph.neighbors(current))
             {
                 if (closedset.count(node) > 0)
-                    continue;
+                    continue;   // already was here
 
                 double tentative_g_score = g_score[current] + dist_func(current, node);
 
@@ -157,6 +157,7 @@ namespace VT
             }
         }
 
+        // extract resulting path
         std::deque<TNode> result;
         for (;;)
         {

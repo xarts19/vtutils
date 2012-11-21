@@ -1,13 +1,18 @@
 #pragma once
 
+#include "../VTAllocator.h"
+#include "../VTSortedVectorMap.h"
+
 #include <vector>
 #include <map>
 #include <iostream>
 #include <exception>
+#include <memory>
 
 // TODO:
 //      * use custom allocator to fight memory fragmentation and slow destruction times
 //        when using huge graphs (map allocates each node separately by default)
+//      * provide a specialization that uses sorted vector instead of map
 
 namespace VT
 {
@@ -26,53 +31,93 @@ namespace VT
         };
 
     private: // typedefs
-        typedef std::vector<Edge> IncidenceList;
+        typedef std::vector<Edge>                       IncidenceListType;
+        typedef std::unique_ptr<IncidenceListType>      IncidenceListPtrType;
+        typedef std::pair<TNode, IncidenceListPtrType>  NodeMapElemType;
+        typedef VT::SSAllocator<NodeMapElemType>        NodeMapAllocatorType;
+        typedef std::map<TNode,
+                         IncidenceListPtrType, 
+                         std::less<TNode>,
+                         NodeMapAllocatorType>          NodeMapType;
 
     private: // data members
-        std::map<TNode, IncidenceList> nodes_;
-        unsigned int prealloc_edges_;
+        NodeMapType nodes_;
 
     private: // helper methods
-        const IncidenceList& get_inc_list(const TNode& node) const
+        const IncidenceListType& get_inc_list(const TNode& node) const
         {
-            auto node_pair_it = nodes_.find(node);
-            if (node_pair_it == nodes_.end())
+            NodeMapType::const_iterator map_it = nodes_.find(node);
+            if (map_it == nodes_.end())
                 throw std::runtime_error("Node does not exist");
-            return node_pair_it->second;
+            assert(map_it->second);
+            return *(map_it->second);
         }
+
+        IncidenceListType& get_inc_list(const TNode& node)
+        {
+            NodeMapType::iterator map_it = nodes_.find(node);
+            if (map_it == nodes_.end())
+                throw std::runtime_error("Node does not exist");
+            assert(map_it->second);
+            return *(map_it->second);
+        }
+
+        void empty_node(const TNode& node)
+        {
+            nodes_.emplace(node, IncidenceListPtrType(new IncidenceListType()));
+        }
+
+        template <typename MapType>
+        struct reserve_helper
+        {
+            void reserve(const MapType&, typename MapType::size_type)
+            {
+                // do nothing
+            }
+        };
+
+        template <template<typename, typename, typename> class SortedVectorMap, 
+            typename K, typename V>
+        struct reserve_helper<SortedVectorMap<K, V, std::allocator<std::pair<K, V>>>>
+        {
+            void reserve(const SortedVectorMap& map, typename SortedVectorMap::size_type n)
+            {
+                map.reserve(n);
+            }
+        };
+
+    private: // not implemented
+        Graph(const Graph& other);
+        Graph& operator=(const Graph& rhs);
 
     private: // friends
         template <typename TNode, typename TEdge>
-        friend std::ostream& operator<<(std::ostream& os, Graph<TNode, TEdge> graph);
+        friend std::ostream& operator<<(std::ostream& os, const Graph<TNode, TEdge>& graph);
 
     public: // public interface
 
-        Graph() : prealloc_edges_(0) { }
+        Graph() { }
 
         /*
             *FwdIter ~ TNode
         */
         template <typename FwdIter>
-        explicit Graph(FwdIter begin, FwdIter end) : prealloc_edges_(0)
+        explicit Graph(FwdIter begin, FwdIter end)
         {
             for (FwdIter it = begin; it != end; ++it)
-                nodes_[*it] = IncidenceList();
+                empty_node(*it);
         }
 
-        // set expected number of outgoing edges for each node so that
-        // they can be preallocated
-        void set_prealloc_edges(unsigned int min_edge_count)
+        void reserve(typename NodeMapType::size_type n)
         {
-            prealloc_edges_ = min_edge_count;
+            reserve_helper<NodeMapType>::reserve(nodes_, n);
         }
 
         bool add_node(const TNode& node)
         {
             if (nodes_.count(node) == 0)
             {
-                nodes_[node] = IncidenceList();
-                if (prealloc_edges_)
-                    nodes_[node].reserve(prealloc_edges_);
+                empty_node(node);
                 return true;
             }
             else
@@ -90,18 +135,19 @@ namespace VT
 
         bool add_edge(const TNode& start, const TNode& end, const TEdge& data)
         {
-            for (const Edge& edge : nodes_[start])
+            IncidenceListType& inc_list = get_inc_list(start);
+            for (const Edge& edge : inc_list)
             {
                 if (edge.end == end)
                     return false;       // edge already exists
             }
-            nodes_[start].emplace_back(end, data);
+            inc_list.emplace_back(end, data);
             return true;
         }
 
         const TEdge& get_edge_data(const TNode& start, const TNode& end) const
         {
-            const IncidenceList& edges = get_inc_list(start);
+            const IncidenceListType& edges = get_inc_list(start);
 
             for (const Edge& edge : edges)
             {
@@ -119,7 +165,7 @@ namespace VT
         {
             std::vector<TNode> result;
 
-            const IncidenceList& edges = get_inc_list(node);
+            const IncidenceListType& edges = get_inc_list(node);
 
             // iterate over incidence list
             for (const Edge& edge : edges)
@@ -131,12 +177,13 @@ namespace VT
     };
 
     template <typename TNode, typename TEdge>
-    std::ostream& operator<<(std::ostream& os, Graph<TNode, TEdge> graph)
+    std::ostream& operator<<(std::ostream& os, const Graph<TNode, TEdge>& graph)
     {
         for (auto& node : graph.nodes_)
         {
             os << node.first << ": [ ";
-            for (auto& edge : node.second)
+            assert(node.second);
+            for (auto& edge : *node.second)
             {
                 os << edge.end << " (" << edge.data << ") ";
             }
