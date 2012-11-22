@@ -82,7 +82,8 @@ inline void vt_bfs_test()
 
 
     VT::Graph<Node, double> g2;
-    int size = 100;
+    //g2.reserve(1000);
+    int size = 1000;
     for (int i = 0; i < size; ++i)
     {
         for (int j = 0; j < size; ++j)
@@ -100,14 +101,13 @@ inline void vt_bfs_test()
             }
         }
     }
+    //g2.sort();
 
     r = VT::a_star_search(g2, Node(0, 0), [&](const Node& node) { return node == Node(size-1, size-1); },
                                           [&](const Node& a, const Node& b) { return g2.get_edge_data(a, b); },
                                           [&](const Node& node) { return dist(node, Node(size-1, size-1)); }
                          );
     print_line(cout, r);
-    
-    std::map<int, std::unique_ptr<int>> a;
 }
 
 int main()

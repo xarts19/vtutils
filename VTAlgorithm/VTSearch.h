@@ -97,7 +97,8 @@ namespace VT
                     (heuristic, should always be smaller than real distance to be admissable so that
                     search will always find optimal solution)
     */
-    template <typename TNode, typename TEdge, typename TPred, typename TDistFunc, typename THeurFunc>
+    template <template <typename, typename> class Graph, typename TNode, typename TEdge,
+                                    typename TPred, typename TDistFunc, typename THeurFunc>
     std::deque<TNode> a_star_search(const Graph<TNode, TEdge>& graph,
                                     const TNode& start,
                                     TPred is_dest,

@@ -17,9 +17,8 @@
 namespace VT
 {
     template <typename TNode, typename TEdge>
-    class Graph
+    struct GraphTraitsBase
     {
-    private: // helper classes
         struct Edge
         {
             Edge(const TNode& end, const TEdge& data) :
@@ -30,20 +29,79 @@ namespace VT
             TEdge data;
         };
 
-    private: // typedefs
         typedef std::vector<Edge>                       IncidenceListType;
         typedef std::unique_ptr<IncidenceListType>      IncidenceListPtrType;
         typedef std::pair<TNode, IncidenceListPtrType>  NodeMapElemType;
-        typedef VT::SSAllocator<NodeMapElemType>        NodeMapAllocatorType;
+        typedef std::allocator<NodeMapElemType>         NodeMapAllocatorType;
+    };
+
+
+    template<typename TNode, typename TEdge>
+    struct GraphTraitsMap : public GraphTraitsBase<TNode, TEdge>
+    {
+        //using typename GraphTraitsBase::Edge;
+        //using typename GraphTraitsBase::IncidenceListType;
+        //using typename GraphTraitsBase::IncidenceListPtrType;
+        //using typename GraphTraitsBase::NodeMapElemType;
+        //using typename GraphTraitsBase::NodeMapAllocatorType;
+
         typedef std::map<TNode,
                          IncidenceListPtrType, 
                          std::less<TNode>,
                          NodeMapAllocatorType>          NodeMapType;
 
-    private: // data members
+        static void reserve(NodeMapType& map, typename NodeMapType::size_type n)
+        {
+            // do nothing
+        }
+
+        static void sort(NodeMapType& map)
+        {
+            // do nothing
+        }
+    };
+
+
+    template<typename TNode, typename TEdge>
+    struct GraphTraitsVector : public GraphTraitsBase<TNode, TEdge>
+    {
+        //using typename GraphTraitsBase::Edge;
+        //using typename GraphTraitsBase::IncidenceListType;
+        //using typename GraphTraitsBase::IncidenceListPtrType;
+        //using typename GraphTraitsBase::NodeMapElemType;
+        //using typename GraphTraitsBase::NodeMapAllocatorType;
+
+        typedef VT::SortedVectorMap<TNode,
+                                    IncidenceListPtrType, 
+                                    NodeMapAllocatorType>   NodeMapType;
+
+        static void reserve(NodeMapType& map, typename NodeMapType::size_type n)
+        {
+            map.reserve(n);
+        }
+
+        static void sort(NodeMapType& map)
+        {
+            map.sort();
+        }
+    };
+
+    template <template <typename, typename> class Derived, typename TNode, typename TEdge, typename GraphTraits>
+    class GraphBase
+    {
+    private:
+    // typedefs
+        typedef typename GraphTraits::Edge                  Edge;
+        typedef typename GraphTraits::IncidenceListType     IncidenceListType;
+        typedef typename GraphTraits::IncidenceListPtrType  IncidenceListPtrType;
+        typedef typename GraphTraits::NodeMapElemType       NodeMapElemType;
+        typedef typename GraphTraits::NodeMapAllocatorType  NodeMapAllocatorType;
+        typedef typename GraphTraits::NodeMapType           NodeMapType;
+    
+    // data members
         NodeMapType nodes_;
 
-    private: // helper methods
+    // helper methods
         const IncidenceListType& get_inc_list(const TNode& node) const
         {
             NodeMapType::const_iterator map_it = nodes_.find(node);
@@ -62,47 +120,29 @@ namespace VT
             return *(map_it->second);
         }
 
-        void empty_node(const TNode& node)
+        bool empty_node(const TNode& node)
         {
-            nodes_.emplace(node, IncidenceListPtrType(new IncidenceListType()));
+            auto it = nodes_.emplace(node, IncidenceListPtrType(new IncidenceListType()));
+            return it.second;
         }
 
-        template <typename MapType>
-        struct reserve_helper
-        {
-            void reserve(const MapType&, typename MapType::size_type)
-            {
-                // do nothing
-            }
-        };
+    // not implemented
+        GraphBase(const GraphBase& other);
+        GraphBase& operator=(const GraphBase& rhs);
 
-        template <template<typename, typename, typename> class SortedVectorMap, 
-            typename K, typename V>
-        struct reserve_helper<SortedVectorMap<K, V, std::allocator<std::pair<K, V>>>>
-        {
-            void reserve(const SortedVectorMap& map, typename SortedVectorMap::size_type n)
-            {
-                map.reserve(n);
-            }
-        };
-
-    private: // not implemented
-        Graph(const Graph& other);
-        Graph& operator=(const Graph& rhs);
-
-    private: // friends
+    // friends
         template <typename TNode, typename TEdge>
-        friend std::ostream& operator<<(std::ostream& os, const Graph<TNode, TEdge>& graph);
+        friend std::ostream& operator<<(std::ostream& os, const Derived<TNode, TEdge>& graph);
 
     public: // public interface
 
-        Graph() { }
+        GraphBase() { }
 
         /*
             *FwdIter ~ TNode
         */
         template <typename FwdIter>
-        explicit Graph(FwdIter begin, FwdIter end)
+        explicit GraphBase(FwdIter begin, FwdIter end)
         {
             for (FwdIter it = begin; it != end; ++it)
                 empty_node(*it);
@@ -110,18 +150,17 @@ namespace VT
 
         void reserve(typename NodeMapType::size_type n)
         {
-            reserve_helper<NodeMapType>::reserve(nodes_, n);
+            GraphTraits::reserve(nodes_, n);
+        }
+
+        void sort()
+        {
+            GraphTraits::sort(nodes_);
         }
 
         bool add_node(const TNode& node)
         {
-            if (nodes_.count(node) == 0)
-            {
-                empty_node(node);
-                return true;
-            }
-            else
-                return false;
+            return empty_node(node);
         }
 
         /*
@@ -174,21 +213,63 @@ namespace VT
             }
             return result;
         }
+
+        void print(std::ostream& os) const
+        {
+            for (auto& node : nodes_)
+            {
+                os << node.first << ": [ ";
+                assert(node.second);
+                for (auto& edge : *node.second)
+                {
+                    os << edge.end << " (" << edge.data << ") ";
+                }
+                os << "]" << std::endl;
+            }
+        }
     };
 
+
     template <typename TNode, typename TEdge>
+    class Graph : public GraphBase<Graph, TNode, TEdge, GraphTraitsMap<TNode, TEdge>>
+    {
+    public:
+        Graph() : GraphBase() { }
+        /*
+            *FwdIter ~ TNode
+        */
+        template <typename FwdIter>
+        explicit Graph(FwdIter begin, FwdIter end) : GraphBase(begin, end) { }
+
+    private:
+    // not implemented
+        Graph(const Graph& other);
+        Graph& operator=(const Graph& rhs);
+    };
+
+
+    template <typename TNode, typename TEdge>
+    class VectorGraph : public GraphBase<Graph, TNode, TEdge, GraphTraitsVector<TNode, TEdge>>
+    {
+    public:
+        VectorGraph() : GraphBase() { }
+        /*
+            *FwdIter ~ TNode
+        */
+        template <typename FwdIter>
+        explicit VectorGraph(FwdIter begin, FwdIter end) : GraphBase(begin, end) { }
+
+    private:
+    // not implemented
+        VectorGraph(const VectorGraph& other);
+        VectorGraph& operator=(const VectorGraph& rhs);
+    };
+
+
+    template <template <typename, typename> class Graph, typename TNode, typename TEdge>
     std::ostream& operator<<(std::ostream& os, const Graph<TNode, TEdge>& graph)
     {
-        for (auto& node : graph.nodes_)
-        {
-            os << node.first << ": [ ";
-            assert(node.second);
-            for (auto& edge : *node.second)
-            {
-                os << edge.end << " (" << edge.data << ") ";
-            }
-            os << "]" << std::endl;
-        }
+        graph.print(os);
         return os;
     }
 }
