@@ -54,18 +54,101 @@ namespace VT
     };
 
 
-    namespace detail_
+    class Pool
     {
-        class PoolChunk
+    private:
+        struct Link
         {
-            
+            Link* next;
         };
-    }
+    
+        struct Chunk
+        {
+            enum {size = 8 * 1024 - 16};
+            Chunk* next;
+            char mem[size];
+        };
+
+    private:
+        Link* head;
+        Chunk* chunks;
+        const unsigned int esize;
+        unsigned int allocated_;
+    
+    private:
+        Pool(Pool&);            //copy protection
+        void operator=(Pool&);  //copy protection
+
+        // make pool larger
+        void grow()    // allocate new ‘chunk’, organize it as a linked list of elements of size ’esize’
+        {
+            Chunk* n = new Chunk;
+            n->next = chunks;
+            chunks = n;
+    
+            const int nelem = Chunk::size / esize;
+            char* start = n->mem;
+            char* last = &start[(nelem - 1) * esize];
+    
+            for (char* p = start; p < last; p += esize)     // assume sizeof(Link) <= esize
+                reinterpret_cast<Link*>(p)->next = reinterpret_cast<Link*>(p + esize);
+            reinterpret_cast<Link*>(last)->next = 0;
+            head = reinterpret_cast<Link*>(start);
+        }
+
+        void clear()
+        {
+            Chunk* n = chunks;
+            while (n)
+            {
+                Chunk* p = n;
+                n = n->next;
+                delete p;
+            }
+            head = NULL;
+            chunks = NULL;
+        }
+
+    public:
+        Pool(unsigned int n) :        // n is the size of elements
+            head(NULL),
+            chunks(NULL),
+            esize(n < sizeof(Link*) ? sizeof(Link*) : n)
+        { }
+
+        ~Pool()       // free all chunks
+        {
+            clear();
+        }
+    
+        inline void* alloc()          // allocate one element
+        {
+            if (head == NULL) grow();
+            Link* p = head;         // return first element
+            head = p->next;
+            ++allocated_;
+            return p;
+        }
+
+        inline void free(void* b)      // put an element back into the pool
+        {
+            assert(allocated_ > 0);
+            Link* p = static_cast<Link*>(b);
+            p->next = head;              // put b back as first element
+            head = p;
+            if (--allocated_ == 0) clear();
+        }
+    };
+
 
     // Segregated storage allocator
     template <typename T>
     struct SSAllocator
     {
+    private:
+        static Pool pool_;      // pool of elements of sizeof(T)
+
+    public:
         typedef T               value_type;
         typedef T*              pointer;
         typedef const T*        const_pointer;
@@ -80,12 +163,12 @@ namespace VT
             typedef SSAllocator<U> other;
         };
 
-        pointer address (reference value) const
+        pointer address(reference value) const
         {
             return &value;
         }
 
-        const_pointer address (const_reference value) const
+        const_pointer address(const_reference value) const
         {
             return &value;
         }
@@ -100,7 +183,7 @@ namespace VT
         ~SSAllocator() { }
 
         // return maximum number of elements that can be allocated
-        size_type max_size () const
+        size_type max_size() const
         {
             return std::numeric_limits<std::size_t>::max() / sizeof(T);
         }
@@ -108,19 +191,19 @@ namespace VT
         pointer allocate(size_type n, SSAllocator<void>::const_pointer p = 0)
         {
             UNUSED(p);
-            assert(n <= 1);
-            return (pointer)(::operator new(n * sizeof(T)));
+            assert(n == 1);
+            return static_cast<pointer>(pool_.alloc());
         }
 
         void deallocate(pointer p, size_type n)
         {
-            UNUSED(n);
-            ::operator delete((void*)p);
+            assert(n == 1);
+            pool_.free(p);
         }
 
         void construct(pointer p, const T& t)
         {
-            new( (void*)p ) T(t);
+            new (p) T(t);
         }
 
         void destroy(pointer p)
@@ -132,6 +215,9 @@ namespace VT
     private:
         void operator=(const SSAllocator&);
     };
+
+    template <typename T> VT::Pool VT::SSAllocator<T>::pool_(sizeof(T));
+
 
     template <>
     struct SSAllocator<void>
