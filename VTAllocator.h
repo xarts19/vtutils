@@ -1,5 +1,8 @@
 #pragma once
 
+// TODO:
+//  * add the ability to allocate arrays of objects to Pool
+
 #include <list>
 #include <memory>
 #include <limits>
@@ -201,9 +204,20 @@ namespace VT
             pool_.free(p);
         }
 
+        void construct(pointer p)
+        {
+            new (p) T();
+        }
+
         void construct(pointer p, const T& t)
         {
             new (p) T(t);
+        }
+
+        template <typename... Args>
+        void construct(pointer p, Args&&... args)
+        {
+            new (p) T(std::forward<Args>(args)...);
         }
 
         void destroy(pointer p)
