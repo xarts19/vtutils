@@ -12,7 +12,6 @@ namespace VT
     {
     private:
         typedef std::pair<KeyType, ValType>         ElemType;
-        typedef std::allocator<ElemType>            AllocType;
         typedef std::vector<ElemType, AllocType>    VectorType;
         
         mutable VectorType vector_;

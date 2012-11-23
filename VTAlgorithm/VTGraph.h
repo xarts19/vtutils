@@ -45,6 +45,8 @@ namespace VT
         //using typename GraphTraitsBase::NodeMapElemType;
         //using typename GraphTraitsBase::NodeMapAllocatorType;
 
+        typedef VT::SSAllocator<NodeMapElemType>       NodeMapAllocatorType;
+
         typedef std::map<TNode,
                          IncidenceListPtrType, 
                          std::less<TNode>,
