@@ -22,6 +22,11 @@ void VT::CriticalSection::enter()
     EnterCriticalSection( &data->_criticalSection );
 }
 
+bool VT::CriticalSection::try_enter()
+{
+    return TryEnterCriticalSection( &data->_criticalSection ) == 0;
+}
+
 void VT::CriticalSection::leave()
 {
     LeaveCriticalSection( &data->_criticalSection );
