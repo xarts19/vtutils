@@ -1,6 +1,6 @@
 #include "VTSearch.h"
 
-#include "../std_pretty_printer.h"
+#include "../VTPrettyPrint.h"
 
 #include <iostream>
 #include <vector>
@@ -42,10 +42,10 @@ inline void vt_bfs_test()
     cout << g;
 
     auto result = VT::breadth_first_search(g, 1, [](int node) { return node == 10; });
-    print_line(cout, result);
+    cout << result << endl;
 
     result = VT::depth_first_search(g, 1, [](int node) { return node == 10; });
-    print_line(cout, result);
+    cout << result << endl;
 
     cout << "A*" << endl;
 
@@ -77,7 +77,7 @@ inline void vt_bfs_test()
                                    [&g1](const Node& a, const Node& b) { return g1.get_edge_data(a, b); },
                                    [&dist, &n21](const Node& node) { return dist(node, n21); }
                          );
-    print_line(cout, r);
+    cout << result << endl;
 
 
 
@@ -107,10 +107,10 @@ inline void vt_bfs_test()
                                           [&](const Node& a, const Node& b) { return g2.get_edge_data(a, b); },
                                           [&](const Node& node) { return dist(node, Node(size-1, size-1)); }
                          );
-    print_line(cout, r);
+    cout << result << endl;
 }
 
-int main()
+int main1()
 {
     vt_bfs_test();
     getchar();
