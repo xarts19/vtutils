@@ -54,6 +54,10 @@ namespace VT
         char* buffer_;
         const unsigned int block_size_;
         std::list<char*> free_blocks_;
+
+    private:
+        Allocator(const Allocator&);
+        Allocator& operator=(const Allocator&);
     };
 
 
