@@ -23,4 +23,4 @@ namespace VT
         critical_section_data* data;
     };
 
-};
+}

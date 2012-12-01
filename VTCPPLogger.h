@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 
 // TODO:
@@ -91,7 +92,7 @@ namespace VT
                 std::basic_ios<cT, traits>(&m_sbuf),
                 std::basic_ostream<cT, traits>(&m_sbuf)
                 {
-                    init(&m_sbuf);
+                    this->init(&m_sbuf);
                 }
 
             private:
@@ -112,9 +113,9 @@ namespace VT
 
         private:
             // helpers
-            inline bool is_set(LoggerData* l, LogOpts opt) const;
-            inline bool not_set(LoggerData* l, LogOpts opt) const;
-            inline void set(LogOpts opt);
+            bool is_set(LoggerData* l, LogOpts opt) const;
+            bool not_set(LoggerData* l, LogOpts opt) const;
+            void set(LogOpts opt);
 
             std::ostream& get_stream(LoggerData* data);
 
