@@ -94,7 +94,7 @@ namespace VT
             n->next = chunks;
             chunks = n;
     
-            const int nelem = Chunk::size / esize;
+            const unsigned int nelem = Chunk::size / esize;
             char* start = n->mem;
             char* last = &start[(nelem - 1) * esize];
     
