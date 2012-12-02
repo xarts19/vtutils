@@ -24,7 +24,7 @@ void VT::CriticalSection::enter()
 
 bool VT::CriticalSection::try_enter()
 {
-    static_assert("Not implemented");
+    //static_assert(0, "Not implemented");
 }
 
 void VT::CriticalSection::leave()

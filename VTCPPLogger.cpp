@@ -135,17 +135,17 @@ LogWorker::~LogWorker()
     }
 }
 
-bool LogWorker::is_set(LoggerData* l, LogOpts opt) const
+inline bool LogWorker::is_set(LoggerData* l, LogOpts opt) const
 {
     return ( (options_ & opt) == opt || (l->default_opts_ & opt) == opt );
 }
 
-bool LogWorker::not_set(LoggerData* l, LogOpts opt) const
+inline bool LogWorker::not_set(LoggerData* l, LogOpts opt) const
 {
     return ( (options_ & opt) != opt && (l->default_opts_ & opt) != opt );
 }
 
-void LogWorker::set(LogOpts opt)
+inline void LogWorker::set(LogOpts opt)
 {
     options_ |= opt;
 }
@@ -310,10 +310,10 @@ LogWorker VT::MetaLogger::operator()(LogLevels level) const
 
 
 VT::Logger& VT::LogFactory::stream(const string& name,
-                                   std::shared_ptr<ostream> stream,
+                                   std::shared_ptr<ostream> s,
                                    LogLevels level)
 {
-    return loggers_[name] = Logger(name, detail_::LogType::Custom, stream, level);
+    return loggers_[name] = Logger(name, detail_::LogType::Custom, s, level);
 }
 
 VT::Logger& VT::LogFactory::cout(const string& name,
