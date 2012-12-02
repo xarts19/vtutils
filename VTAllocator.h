@@ -149,6 +149,13 @@ namespace VT
     };
 
 
+    //forward declarations
+    template <typename T>
+    struct SSAllocator;
+
+    template <>
+    struct SSAllocator<void>;
+
     // Segregated storage allocator
     template <typename T>
     struct SSAllocator
