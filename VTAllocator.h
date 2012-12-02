@@ -8,6 +8,7 @@
 #include <limits>
 
 #include <cassert>
+#include <stdlib.h>
 
 #define UNUSED( x ) ( &reinterpret_cast< const int& >( x ) )
 
@@ -252,11 +253,11 @@ namespace VT
     };
 
     template< typename T, typename U >
-    bool operator==( const SSAllocator<T>& a, const SSAllocator<U>& b )
+    bool operator==( const SSAllocator<T>&, const SSAllocator<U>& )
     { return true; }
 
     template< typename T, typename U >
-    bool operator!=( const SSAllocator<T>& a, const SSAllocator<U>& b )
+    bool operator!=( const SSAllocator<T>&, const SSAllocator<U>& )
     { return false; }
 
 
