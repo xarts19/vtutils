@@ -15,7 +15,10 @@ namespace VT
         template <typename TNode>
         struct PathElem
         {
-            PathElem(const TNode& node, std::shared_ptr<PathElem> prev) : node(node), prev(prev) { }
+            PathElem(const TNode& node_, std::shared_ptr<PathElem> prev_) :
+				node(node_),
+				prev(prev_)
+			{ }
 
             TNode node;
             std::shared_ptr<PathElem> prev;
@@ -25,8 +28,8 @@ namespace VT
         template <typename Elem>
         struct QueueAdapter : public std::queue<Elem>
         {
-            Elem& top() { return front(); }
-            const Elem& top() const { return front(); }
+            Elem& top() { return this->front(); }
+            const Elem& top() const { return this->front(); }
         };
 
 

@@ -12,9 +12,9 @@ struct Node
     int x;
     int y;
     Node() { }
-    Node(int x, int y) : x(x), y(y) { }
+    Node(int x_, int y_) : x(x_), y(y_) { }
     bool operator==(const Node& other) const { return (x == other.x && y == other.y); }
-    bool operator<(const Node& other) const { return (x < other.x || x == other.x && y < other.y); }
+    bool operator<(const Node& other) const { return (x < other.x || (x == other.x && y < other.y)); }
     friend ostream& operator<<(ostream& os, const Node& n)
     {
         os << "(" << n.x << ", " << n.y << ")";
@@ -116,3 +116,4 @@ int main1()
     getchar();
     return 0;
 }
+

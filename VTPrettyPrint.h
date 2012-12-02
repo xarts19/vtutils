@@ -23,6 +23,9 @@
     #define TUPLE_ARGS Types...
 #endif
 
+using std::begin;
+using std::end;
+
 struct default_formatter
 {
     template <typename T>
@@ -166,7 +169,7 @@ namespace detail_
     template <TUPLE_PARAMS, typename Fmt>
     void print(std::ostream& os, const std::tuple<TUPLE_ARGS>& t, const Fmt& fmt)
     {
-        const size_t N = tuple_size<std::tuple<TUPLE_ARGS>>::value;
+        const size_t N = std::tuple_size<std::tuple<TUPLE_ARGS>>::value;
         fmt.prefix(os, t);
         print_tuple_helper(os, t, fmt, std::integral_constant<size_t, N>());
         fmt.suffix(os, t);
@@ -195,8 +198,8 @@ namespace detail_
     void print_tuple_helper(std::ostream& os, const Tuple& t, const Fmt& fmt,
                             std::integral_constant<size_t, I>)
     {
-        const size_t N = tuple_size<Tuple>::value;
-        print(os, get<N - I>(t), fmt);
+        const size_t N = std::tuple_size<Tuple>::value;
+        print(os, std::get<N - I>(t), fmt);
         fmt.separator(os, t);
         print_tuple_helper(os, t, fmt, std::integral_constant<size_t, I - 1>());
     }
@@ -205,8 +208,8 @@ namespace detail_
     void print_tuple_helper(std::ostream& os, const Tuple& t, const Fmt& fmt,
                             std::integral_constant<size_t, 1>)
     {
-        const size_t N = tuple_size<Tuple>::value;
-        print(os, get<N - 1>(t), fmt);
+        const size_t N = std::tuple_size<Tuple>::value;
+        print(os, std::get<N - 1>(t), fmt);
     }
 
     template <typename Tuple, typename Fmt>
@@ -284,5 +287,6 @@ template <typename T, typename Fmt>
 void print_line(std::ostream& os, const T& t, const Fmt& fmt)
 {
     detail_::print(os, t, fmt);
-    os << endl;
+    os << std::endl;
 }
+
