@@ -24,7 +24,7 @@ void VT::CriticalSection::enter()
 
 bool VT::CriticalSection::try_enter()
 {
-    //static_assert(0, "Not implemented");
+    return pthread_mutex_trylock( &data->_criticalSection ) == 0;
 }
 
 void VT::CriticalSection::leave()
