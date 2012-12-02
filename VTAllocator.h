@@ -117,7 +117,7 @@ namespace VT
             head(NULL),
             chunks(NULL),
             esize(n < sizeof(Link*) ? sizeof(Link*) : n)
-        { }
+        { assert(n < Chunk::size); }
 
         ~Pool()       // free all chunks
         {

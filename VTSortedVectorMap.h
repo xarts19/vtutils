@@ -14,7 +14,7 @@ namespace VT
         typedef std::pair<KeyType, ValType>         ElemType;
         typedef std::vector<ElemType, AllocType>    VectorType;
         
-        mutable VectorType vector_;
+        VectorType vector_;
 
     private:
         class Compare
@@ -85,7 +85,7 @@ namespace VT
             return bounds.second - bounds.first;
         }
 
-        void sort() const
+        void sort()
         {
             std::sort(vector_.begin(), vector_.end(), Compare());
         }
