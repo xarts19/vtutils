@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 #include <utility>
 
@@ -85,7 +86,7 @@ namespace VT
 
         size_type count(const KeyType& key) const
         {
-            std::pair<VectorType::iterator, VectorType::iterator> bounds;
+            std::pair<typename VectorType::iterator, typename VectorType::iterator> bounds;
             bounds = equal_range(vector_.begin(), vector_.end(), key, Compare());
             return bounds.second - bounds.first;
         }
@@ -96,4 +97,5 @@ namespace VT
         }
     };
 
-};
+}
+

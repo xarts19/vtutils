@@ -156,6 +156,22 @@ namespace VT
     template <>
     struct SSAllocator<void>;
 
+
+	template <>
+    struct SSAllocator<void>
+    {
+        typedef void        value_type;
+        typedef void*       pointer;
+        typedef const void* const_pointer;
+
+        template <class U> 
+        struct rebind
+        {
+            typedef SSAllocator<U> other;
+        };
+    };
+
+
     // Segregated storage allocator
     template <typename T>
     struct SSAllocator
@@ -204,11 +220,11 @@ namespace VT
         }
 
         pointer allocate(size_type n, SSAllocator<void>::const_pointer p = 0)
-        {
-            UNUSED(p);
-            assert(n == 1);
-            return static_cast<pointer>(pool_.alloc());
-        }
+		{
+			UNUSED(p);
+			assert(n == 1);
+			return static_cast<pointer>(pool_.alloc());
+		}
 
         void deallocate(pointer p, size_type n)
         {
@@ -242,22 +258,7 @@ namespace VT
         void operator=(const SSAllocator&);
     };
 
-    template <typename T> VT::Pool VT::SSAllocator<T>::pool_(sizeof(T));
-
-
-    template <>
-    struct SSAllocator<void>
-    {
-        typedef void        value_type;
-        typedef void*       pointer;
-        typedef const void* const_pointer;
-
-        template <class U> 
-        struct rebind
-        {
-            typedef SSAllocator<U> other;
-        };
-    };
+	template <typename T> VT::Pool VT::SSAllocator<T>::pool_(sizeof(T));
 
     template< typename T, typename U >
     bool operator==( const SSAllocator<T>&, const SSAllocator<U>& )
@@ -267,5 +268,5 @@ namespace VT
     bool operator!=( const SSAllocator<T>&, const SSAllocator<U>& )
     { return false; }
 
+}
 
-};

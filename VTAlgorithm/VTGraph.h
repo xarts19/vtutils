@@ -6,7 +6,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
-#include <exception>
+#include <stdexcept>
 #include <memory>
 
 // TODO:
@@ -21,8 +21,8 @@ namespace VT
     {
         struct Edge
         {
-            Edge(const TNode& end, const TEdge& data) :
-                end(end), data(data)
+            Edge(const TNode& end_, const TEdge& data_) :
+                end(end_), data(data_)
             { }
 
             TNode end;
@@ -39,25 +39,25 @@ namespace VT
     template<typename TNode, typename TEdge>
     struct GraphTraitsMap : public GraphTraitsBase<TNode, TEdge>
     {
-        //using typename GraphTraitsBase::Edge;
-        //using typename GraphTraitsBase::IncidenceListType;
-        //using typename GraphTraitsBase::IncidenceListPtrType;
-        //using typename GraphTraitsBase::NodeMapElemType;
-        //using typename GraphTraitsBase::NodeMapAllocatorType;
+        using typename GraphTraitsBase<TNode, TEdge>::Edge;
+        using typename GraphTraitsBase<TNode, TEdge>::IncidenceListType;
+        using typename GraphTraitsBase<TNode, TEdge>::IncidenceListPtrType;
+        using typename GraphTraitsBase<TNode, TEdge>::NodeMapElemType;
+        //using typename GraphTraitsBase<TNode, TEdge>::NodeMapAllocatorType;
 
-        typedef VT::SSAllocator<NodeMapElemType>       NodeMapAllocatorType;
+        typedef VT::SSAllocator<NodeMapElemType> NodeMapAllocatorType;
 
         typedef std::map<TNode,
                          IncidenceListPtrType, 
                          std::less<TNode>,
-                         NodeMapAllocatorType>          NodeMapType;
+                         NodeMapAllocatorType>   NodeMapType;
 
-        static void reserve(NodeMapType& map, typename NodeMapType::size_type n)
+        static void reserve(NodeMapType&, typename NodeMapType::size_type)
         {
             // do nothing
         }
 
-        static void sort(NodeMapType& map)
+        static void sort(NodeMapType&)
         {
             // do nothing
         }
@@ -67,11 +67,11 @@ namespace VT
     template<typename TNode, typename TEdge>
     struct GraphTraitsVector : public GraphTraitsBase<TNode, TEdge>
     {
-        //using typename GraphTraitsBase::Edge;
-        //using typename GraphTraitsBase::IncidenceListType;
-        //using typename GraphTraitsBase::IncidenceListPtrType;
-        //using typename GraphTraitsBase::NodeMapElemType;
-        //using typename GraphTraitsBase::NodeMapAllocatorType;
+        using typename GraphTraitsBase<TNode, TEdge>::Edge;
+        using typename GraphTraitsBase<TNode, TEdge>::IncidenceListType;
+        using typename GraphTraitsBase<TNode, TEdge>::IncidenceListPtrType;
+        using typename GraphTraitsBase<TNode, TEdge>::NodeMapElemType;
+        using typename GraphTraitsBase<TNode, TEdge>::NodeMapAllocatorType;
 
         typedef VT::SortedVectorMap<TNode,
                                     IncidenceListPtrType, 
@@ -88,7 +88,7 @@ namespace VT
         }
     };
 
-    template <template <typename, typename> class Derived, typename TNode, typename TEdge, typename GraphTraits>
+    template <typename TNode, typename TEdge, typename GraphTraits>
     class GraphBase
     {
     private:
@@ -106,7 +106,7 @@ namespace VT
     // helper methods
         const IncidenceListType& get_inc_list(const TNode& node) const
         {
-            NodeMapType::const_iterator map_it = nodes_.find(node);
+            typename NodeMapType::const_iterator map_it = nodes_.find(node);
             if (map_it == nodes_.end())
                 throw std::runtime_error("Node does not exist");
             assert(map_it->second);
@@ -115,7 +115,7 @@ namespace VT
 
         IncidenceListType& get_inc_list(const TNode& node)
         {
-            NodeMapType::iterator map_it = nodes_.find(node);
+            typename NodeMapType::iterator map_it = nodes_.find(node);
             if (map_it == nodes_.end())
                 throw std::runtime_error("Node does not exist");
             assert(map_it->second);
@@ -132,12 +132,7 @@ namespace VT
         GraphBase(const GraphBase& other);
         GraphBase& operator=(const GraphBase& rhs);
 
-    // friends
-        template <typename TNode, typename TEdge>
-        friend std::ostream& operator<<(std::ostream& os, const Derived<TNode, TEdge>& graph);
-
     public: // public interface
-
         GraphBase() { }
 
         /*
@@ -233,15 +228,16 @@ namespace VT
 
 
     template <typename TNode, typename TEdge>
-    class Graph : public GraphBase<Graph, TNode, TEdge, GraphTraitsMap<TNode, TEdge>>
+    class Graph : public GraphBase<TNode, TEdge, GraphTraitsMap<TNode, TEdge>>
     {
     public:
-        Graph() : GraphBase() { }
+        Graph() : GraphBase<TNode, TEdge, GraphTraitsMap<TNode, TEdge>>() { }
         /*
             *FwdIter ~ TNode
         */
         template <typename FwdIter>
-        explicit Graph(FwdIter begin, FwdIter end) : GraphBase(begin, end) { }
+        explicit Graph(FwdIter begin, FwdIter end) : 
+			GraphBase<TNode, TEdge, GraphTraitsMap<TNode, TEdge>>(begin, end) { }
 
     private:
     // not implemented
@@ -251,15 +247,16 @@ namespace VT
 
 
     template <typename TNode, typename TEdge>
-    class VectorGraph : public GraphBase<Graph, TNode, TEdge, GraphTraitsVector<TNode, TEdge>>
+    class VectorGraph : public GraphBase<TNode, TEdge, GraphTraitsVector<TNode, TEdge>>
     {
     public:
-        VectorGraph() : GraphBase() { }
+        VectorGraph() : GraphBase<TNode, TEdge, GraphTraitsVector<TNode, TEdge>>() { }
         /*
             *FwdIter ~ TNode
         */
         template <typename FwdIter>
-        explicit VectorGraph(FwdIter begin, FwdIter end) : GraphBase(begin, end) { }
+        explicit VectorGraph(FwdIter begin, FwdIter end) :
+			GraphBase<TNode, TEdge, GraphTraitsVector<TNode, TEdge>>(begin, end) { }
 
     private:
     // not implemented
