@@ -14,7 +14,7 @@
 
 namespace VT
 {
-
+    // deprecated, used only in TSP project
     template <typename T>
     class Allocator
     {

@@ -46,6 +46,11 @@ namespace VT
             vector_.push_back(value);
         }
 
+        void insert(ElemType&& value)
+        {
+            vector_.push_back(std::forward<ElemType>(value));
+        }
+
         template <typename... Args>
         std::pair<iterator, bool> emplace(Args... args)
         {
