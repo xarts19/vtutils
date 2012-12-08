@@ -1,5 +1,9 @@
 #include "VTPrettyPrint.h"
 
+#include <map>
+#include <vector>
+#include <forward_list>
+
 using namespace std;
 
 struct special_formatter {

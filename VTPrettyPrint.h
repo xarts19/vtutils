@@ -1,17 +1,14 @@
 #pragma once
 
 #include <stddef.h>
-#include <forward_list>
 #include <iostream>
 #include <iterator>
-#include <map>
 #include <ostream>
 #include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 #include <memory>
 
 #if defined(_MSC_VER)
@@ -22,9 +19,6 @@
     #define TUPLE_PARAMS typename... Types
     #define TUPLE_ARGS Types...
 #endif
-
-using std::begin;
-using std::end;
 
 struct default_formatter
 {
@@ -81,6 +75,9 @@ struct default_formatter
 
 namespace detail_
 {
+    
+    using std::begin;
+    using std::end;
 
     template <typename T>
     struct is_container_helper

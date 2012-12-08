@@ -11,6 +11,7 @@
 #include <stdlib.h>
 
 #define UNUSED( x ) ( &reinterpret_cast< const int& >( x ) )
+//#define UNUSED(x) (x)
 
 namespace VT
 {
