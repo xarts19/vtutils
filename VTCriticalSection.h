@@ -22,5 +22,18 @@ namespace VT
         struct critical_section_data;
         critical_section_data* data;
     };
+    
+    class CSLocker
+    {
+    public:
+        CSLocker(CriticalSection& cs) : cs_(cs) { cs_.enter(); }
+        ~CSLocker() { cs_.leave(); }
+        
+    private:
+        CSLocker(const CSLocker&);
+        CSLocker& operator=(const CSLocker&);
+    
+        CriticalSection& cs_;
+    };
 
 }
