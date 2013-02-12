@@ -26,7 +26,7 @@ namespace VT
     class CSLocker
     {
     public:
-        CSLocker(CriticalSection& cs) : cs_(cs) { cs_.enter(); }
+        explicit CSLocker(CriticalSection& cs) : cs_(cs) { cs_.enter(); }
         ~CSLocker() { cs_.leave(); }
         
     private:
