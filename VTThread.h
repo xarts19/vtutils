@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VTCriticalSection.h"
+
 namespace VT
 {
 
@@ -25,8 +27,9 @@ namespace VT
         static unsigned long __stdcall thread_start( void* params );
 
     private:
-        HANDLE thread_handle;
-        int state;
+        HANDLE thread_handle_;
+        int state_;
+        VT::CriticalSection state_lock_;
     };
 
 };

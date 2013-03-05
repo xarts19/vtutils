@@ -39,29 +39,45 @@ std::string get_win_error_msg()
     return msg;
 }
 
-enum State {Running, Waiting, Finished, NotStarted};
+enum State {Running, Waiting, Finished, NotStarted, Init};
 
 unsigned long WINAPI VT::Thread::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
-    t->state = Running;
+    {
+        VT::CSLocker lock(t->state_lock_);
+        t->state_ = Running;
+    }
     t->run();
-    t->state = Finished;
+    {
+        VT::CSLocker lock(t->state_lock_);
+        t->state_ = Finished;
+    }
     return 0;
 }
 
-VT::Thread::Thread() : thread_handle( NULL ), state( NotStarted )
+VT::Thread::Thread()
+    : thread_handle_(NULL)
+    , state_(NotStarted)
+    , state_lock_()
 {
 }
 
 VT::Thread::~Thread()
 {
-    if ( state != NotStarted )
-    { CloseHandle( thread_handle ); }
+    if ( thread_handle_ != NULL )
+        CloseHandle( thread_handle_ );
 }
 
 void VT::Thread::start()
 {
+    {
+        VT::CSLocker lock(state_lock_);
+        if (state_ != NotStarted)
+            throw std::runtime_error("Thread already started");
+        state_ = Init;
+    }
+
     HANDLE h = CreateThread( NULL, 0, &thread_start, this,  0, NULL );
 
     if ( h == NULL )
@@ -69,18 +85,20 @@ void VT::Thread::start()
         throw std::runtime_error( "Failed to create thread. Error: " + get_win_error_msg() );
     }
 
-    thread_handle = h;
+    thread_handle_ = h;
 }
 
 bool VT::Thread::join( int timeout_millis )
 {
     assert( timeout_millis >= -1 );
 
-    if ( state == NotStarted || state == Finished )
-    { return true; }
+    {
+        VT::CSLocker lock(state_lock_);
+        if ( state_ == NotStarted || state_ == Finished )
+            return true;
+    }
 
-    state = Waiting;
-    int result = WaitForSingleObject( thread_handle, ( timeout_millis == -1 ? INFINITE : timeout_millis ) );
+    int result = WaitForSingleObject( thread_handle_, ( timeout_millis == -1 ? INFINITE : timeout_millis ) );
 
     if ( result == WAIT_TIMEOUT )
     {
@@ -98,10 +116,12 @@ bool VT::Thread::join( int timeout_millis )
 
 bool VT::Thread::isRunning()
 {
-    return ( state == Running );
+    VT::CSLocker lock(state_lock_);
+    return ( state_ == Running || state_ == Init );
 }
 
 bool VT::Thread::isFinished()
 {
-    return ( state == Finished );
+    VT::CSLocker lock(state_lock_);
+    return ( state_ == Finished );
 }
