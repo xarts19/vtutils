@@ -44,6 +44,7 @@ enum State {Running, Waiting, Finished, NotStarted};
 unsigned long WINAPI VT::Thread::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
+    t->state = Running;
     t->run();
     t->state = Finished;
     return 0;
@@ -61,7 +62,6 @@ VT::Thread::~Thread()
 
 void VT::Thread::start()
 {
-    state = Running;
     HANDLE h = CreateThread( NULL, 0, &thread_start, this,  0, NULL );
 
     if ( h == NULL )
