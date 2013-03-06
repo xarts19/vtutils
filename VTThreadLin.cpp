@@ -1,20 +1,34 @@
 #include "VTThread.h"
-#include 
-
-#include <stdexcept>
-#include <string>
-
-#include <unistd.h>
-#include <limits.h>
-#include <pthread.h>
 
 #include "VTCriticalSection.h"
 
 #include <stdexcept>
 #include <string>
+#include <sstream>
 
 #include <assert.h>
-#include <Windows.h>
+#include <limits.h>
+
+#include <unistd.h>
+#include <pthread.h>
+#include <errno.h>
+
+
+std::string get_lin_error_msg(int code)
+{
+    switch (code)
+    {
+    case EAGAIN: return "Insufficient resources (EAGAIN)";
+    case EINVAL: return "Invalid attr settings (EINVAL)";
+    case EPERM: return "Insufficient permissions (EPREM)";
+    default:
+        {
+            std::stringstream s;
+            s << code;
+            return "Unknown error: " + s.str();
+        }
+    }
+}
 
 
 struct VT::Thread::Impl
@@ -25,7 +39,8 @@ struct VT::Thread::Impl
         , state_lock()
     { }
 
-    static unsigned long WINAPI thread_start(void* params);
+    // function of type THREAD_START_LINUX
+    static void* thread_start(void* params);
 
     pthread_t  thread_handle;
     int        state;
@@ -33,7 +48,7 @@ struct VT::Thread::Impl
 };
 
 
-unsigned long WINAPI VT::Thread::Impl::thread_start( void* params )
+void* VT::Thread::Impl::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
     {
@@ -45,7 +60,8 @@ unsigned long WINAPI VT::Thread::Impl::thread_start( void* params )
         VT::CSLocker lock(t->pimpl_->state_lock);
         t->pimpl_->state = detail_::ThreadState::Finished;
     }
-    return 0;
+    
+    return nullptr;
 }
 
 
@@ -56,6 +72,8 @@ void VT::Thread::sleep(int time_ms)
 
 unsigned long VT::Thread::current_thread_id()
 {
+    // lucky me, thread_t == unsigned long, just as in Windows
+    // where ThreadId is DWORD which is unsigned long
     return pthread_self();
 }
 
@@ -66,8 +84,6 @@ VT::Thread::Thread()
 
 VT::Thread::~Thread()
 {
-    if ( pimpl_->thread_handle != NULL )
-        CloseHandle( pimpl_->thread_handle );
 }
 
 void VT::Thread::start()
@@ -79,14 +95,22 @@ void VT::Thread::start()
         pimpl_->state = detail_::ThreadState::Init;
     }
 
-    HANDLE h = CreateThread( NULL, 0, &Impl::thread_start, this, 0, NULL );
+    pthread_attr_t attr;
+    int ret = pthread_attr_init(&attr);
+    if (ret != 0)
+        throw std::runtime_error( "Failed to init thread attributes" );
+    
+    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    assert(ret == 0);
+    
+    ret = pthread_create(&pimpl_->thread_handle, &attr, &Impl::thread_start, this);
+    
+    ret = pthread_attr_destroy(&attr);
+    if (ret != 0)
+        ; // ignore
 
-    if ( h == NULL )
-    {
-        throw std::runtime_error( "Failed to create thread. Error: " + get_win_error_msg() );
-    }
-
-    pimpl_->thread_handle = h;
+    if ( ret != 0 )
+        throw std::runtime_error( "Failed to create thread. Error: " + get_lin_error_msg(ret) );
 }
 
 bool VT::Thread::join( int timeout_millis )
@@ -129,7 +153,8 @@ bool VT::Thread::isFinished() const
 
 unsigned long VT::Thread::id() const
 {
-    return GetThreadId(pimpl_->thread_handle);
+    // same comment as in VT::Thread::current_thread_id
+    return pimpl_->thread_handle;
 }
 
 
