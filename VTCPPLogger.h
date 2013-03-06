@@ -30,13 +30,16 @@ namespace VT
 
     enum LogLevel
     {
-        LL_Debug       = 1,
-        LL_Info        = 2,
-        LL_Warning     = 3,
-        LL_Error       = 4,
-        LL_Critical    = 5,
-        LL_NoLogging   = 6
+        LL_Debug       = 0,
+        LL_Info        = 1,
+        LL_Warning     = 2,
+        LL_Error       = 3,
+        LL_Critical    = 4,
+        LL_NoLogging   = 5
     };
+
+    // return LL_NoLogging on unknown strings
+    LogLevel LogLevel_from_str(const std::string& level);
 
     enum LogOpts
     {
@@ -98,7 +101,11 @@ namespace VT
 
         // logger assumes control of FILE object and closes it when
         // all copies of this logger are destroyed or have new stream set
-        void set_stream(std::FILE* stream, LogLevel reporting_level = LL_Debug);
+        bool set_stream(std::FILE* stream, LogLevel reporting_level = LL_Debug);
+
+        // returns false when failed to open the file
+        // uses std::fopen, so use apropriate functions to get error codes
+        bool set_stream(std::string filename, LogLevel reporting_level = LL_Debug);
 
 
         // modify logger options

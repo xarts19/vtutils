@@ -9,13 +9,15 @@
 #include <time.h>
 #include <assert.h>
 
-#define TIMESTAMP_FORMAT "%d/%m/%y %H:%M:%S"
+#define TIMESTAMP_FORMAT "%Y-%m-%d %H:%M:%S"
 
-
+// shut up fopen and localtime security warnings in Visual Studio
 #ifdef _MSC_VER
     #pragma warning(push)
     #pragma warning(disable: 4996)
 #endif
+
+
 std::string createTimestamp()
 {
     time_t     now      = time( 0 );
@@ -24,10 +26,23 @@ std::string createTimestamp()
     strftime( buf, sizeof( buf ), TIMESTAMP_FORMAT, &timeinfo );
     return buf;
 }
-#ifdef _MSC_VER
-    #pragma warning(pop)
-#endif
 
+
+VT::LogLevel VT::LogLevel_from_str(const std::string& level)
+{
+    if (level == "Debug")
+        return LL_Debug;
+    else if (level == "Info")
+        return LL_Info;
+    else if (level == "Warning")
+        return LL_Warning;
+    else if (level == "Error")
+        return LL_Error;
+    else if (level == "Critical")
+        return LL_Critical;
+    else
+        return LL_NoLogging;
+}
 
 const char* getLogLevel(VT::LogLevel l)
 {
@@ -54,7 +69,7 @@ namespace
 {
     bool is_set(unsigned int options, VT::LogOpts opt)
     {
-        return (options & opt) == opt;
+        return (options & opt) == static_cast<unsigned int>(opt);
     }
 
     void set(unsigned int& options, VT::LogOpts opt)
@@ -127,20 +142,41 @@ void VT::Logger::set_cerr(LogLevel reporting_level)
     pimpl_->cerr_level = reporting_level;
 }
 
-void VT::Logger::set_stream(std::FILE* stream, LogLevel reporting_level)
+bool VT::Logger::set_stream(std::FILE* stream, LogLevel reporting_level)
 {
     assert(stream != nullptr && reporting_level != LL_NoLogging ||
            stream == nullptr && reporting_level == LL_NoLogging);
 
-    if (stream == nullptr)
+    if (stream)
+    {
+        pimpl_->stream = std::shared_ptr<std::FILE>(stream, std::fclose);
+        pimpl_->stream_level = reporting_level;
+    }
+    else
     {
         pimpl_->stream = nullptr;
         pimpl_->stream_level = LL_NoLogging;
     }
+
+    return true;
+}
+
+bool VT::Logger::set_stream(std::string filename, LogLevel reporting_level)
+{
+    assert(!filename.empty() && reporting_level != LL_NoLogging ||
+           filename.empty() && reporting_level == LL_NoLogging);
+
+    if (!filename.empty())
+    {
+        FILE* file = std::fopen(filename.c_str(), "a+");
+        if (file)
+            return set_stream(file, reporting_level);
+        else
+            return false;
+    }
     else
     {
-        pimpl_->stream = std::shared_ptr<std::FILE>(stream, std::fclose);
-        pimpl_->stream_level = reporting_level;
+        return set_stream(nullptr, reporting_level);
     }
 }
 
@@ -225,3 +261,7 @@ VT::detail_::LogWorker::~LogWorker()
 
     logger_->log_worker(msg_level_, msg_stream_.str());
 }
+
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif
