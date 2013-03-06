@@ -1,61 +1,77 @@
 #include "VTCPPLogger.h"
 
+#include "VTThread.h"
+
 #include <fstream>
+
+struct CTest : public VT::Thread
+{
+    static VT::Logger* log;
+
+    void run()
+    {
+        for (int i = 0; i < 100; ++i)
+        {
+            // VT::Thread::sleep(1000);
+            log->debug() << i << "We" << "are" << "spamming";
+        }
+    }
+};
+
+VT::Logger* CTest::log = nullptr;
+
+void concurrent_test()
+{
+    auto logger = VT::Logger::cout("concurrent");
+
+    CTest thread1;
+    CTest thread2;
+    thread1.log = &logger;
+    thread2.log = &logger;
+
+    thread1.start();
+    thread2.start();
+
+    thread1.join();
+    thread2.join();
+}
 
 int main()
 {
-    VT::LogFactory log_factory;
-    const VT::Logger& logger_file =
-        log_factory.stream("main_file",
-                           std::make_shared<std::ofstream>("1.txt", std::ios_base::app),
-                           VT::LogLevel::Debug);
+    auto logger = VT::Logger::cout("default");
 
-    logger_file() << "file test";
-        
-    VT::Logger& logger = log_factory.cout("main_cout", VT::LogLevel::Debug);
-    logger.disable_locking();
+    logger.debug() << "Hello" << 55 << "done";
+    logger.debug() << std::hex << 11 << "done";
 
-    logger() << "Hello" << 55 << "done";
-    logger() << std::hex << 11 << "done";
+    logger.debug() << "smth" << "is" << 25 << "times" << std::hex << 12 << "wrong";
+    logger.debug() << "";
+    logger.log(VT::LL_Debug) << "DEBUG!!!";
+    logger.log(VT::LL_Info) << "Info!!!";
+    logger.log(VT::LL_Warning) << "WARNING!!!";
+    logger.log(VT::LL_Error) << "ERROR!!!";
+    logger.log(VT::LL_Critical) << "CRITICAL!!!";
+    logger.info() << "Info!!!";
+    logger.warning() << "WARNING!!!";
+    logger.error() << "ERROR!!!";
+    logger.critical() << "CRITICAL!!!";
 
-    logger().log("smth", "is", 25, "times", std::hex, 12, "wrong");
-    logger().log();
-    logger(VT::LogLevel::Debug).log("DEBUG!!!");
-    logger(VT::LogLevel::Info).log("Info!!!");
-    logger(VT::LogLevel::Warning).log("WARNING!!!");
-    logger(VT::LogLevel::Error).log("ERROR!!!");
-    logger(VT::LogLevel::Critical).log("CRITICAL!!!");
+    logger.debug() << "NoSpace" << "is" << "not" << "set";
 
-    logger() << "NoSpace" << "is" << "not" << "set";
-    logger().nospace() << "NoSpace" << "is" << "set";
+    logger.set(VT::LO_NoEndl);
+    logger.set(VT::LO_NoSpace);
 
-    logger().noendl() << "NoEndl is set";
-    logger() << "As you see";
+    logger.debug() << "NoSpace" << "and" << "NoEndl";
+    logger.debug() << "is" << "set";
 
-    logger.set_opt(VT::LogOpt::NoEndl)
-          .set_opt(VT::LogOpt::NoSpace);
+    logger.reset();
+    logger.debug() << "Ok." << "Options" << "are" << "set" << "to" << "default";
 
-    logger() << "NoSpace" << "and" << "NoEndl";
-    logger() << "is" << "set";
+    concurrent_test();
 
-    logger.reset_opts();
-    logger() << "Ok." << "Options" << "are" << "set" << "to" << "default";
-
-    logger.set_naked();
-    logger() << "Naked " << "logger " << "message\n";
-    logger.reset_opts();
-
-    const VT::Logger& logger2 = log_factory.cerr("main_err", VT::LogLevel::Debug);
-    logger2() << "Error stream";
-
-    const VT::Logger& logger3 = log_factory.noop("main_noop");
-    logger3() << "You should not see this";
-
-    VT::MetaLogger& ml = log_factory.meta("meta", "main_err", "main_cout");
-
-    ml() << "MetaLogger test";
-
-    ml = log_factory.get_meta("meta");
+    // test file logging
+    auto file_logger = VT::Logger::stream("file", std::fopen("log.log", "a"));
+    file_logger.debug() << "Test1";
+    file_logger.warning() << "Warning!";
 
     getchar();
     return 0;

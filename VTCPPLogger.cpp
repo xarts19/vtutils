@@ -1,5 +1,7 @@
 #include "VTCPPLogger.h"
 
+#include "VTThread.h"
+
 #include <exception>
 #include <iostream>
 #include <iomanip>
@@ -7,72 +9,39 @@
 #include <time.h>
 #include <assert.h>
 
-
-// sink output into void
-std::shared_ptr<VT::detail_::onullstream> VT::detail_::dev_null_ = 
-    std::shared_ptr<VT::detail_::onullstream>(new VT::detail_::onullstream());
+#define TIMESTAMP_FORMAT "%d/%m/%y %H:%M:%S"
 
 
-using VT::detail_::LoggerData;
-using VT::detail_::LogWorker;
-using VT::CriticalSection;
-using VT::LogLevels;
-using VT::LogOpts;
-using std::string;
-using std::ostream;
-using std::vector;
-
-
-namespace VT
-{
-    namespace detail_
-    {
-        struct LoggerData
-        {
-            LoggerData() :
-                name_       (),
-                type_       (LogType::Noop),
-                stream_     (),
-                lock_       (),
-                use_lock_   (false),
-                log_level_  (LogLevel::Critical),
-                default_opts_(LogOpt::Default)
-            { }
-
-            std::string name_;
-            VT::detail_::LogTypes type_;
-            std::shared_ptr<ostream> stream_;
-            std::shared_ptr<VT::CriticalSection> lock_;
-            bool use_lock_;
-            VT::LogLevels log_level_;
-            unsigned int default_opts_;
-        };
-    }
-}
-
-string createTimestamp()
+#ifdef _MSC_VER
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+#endif
+std::string createTimestamp()
 {
     time_t     now      = time( 0 );
     struct tm  timeinfo = *localtime( &now );
     char       buf[80];
-    strftime( buf, sizeof( buf ), "%d/%m/%y %H:%M:%S", &timeinfo );
+    strftime( buf, sizeof( buf ), TIMESTAMP_FORMAT, &timeinfo );
     return buf;
 }
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif
 
 
-const char* getLogLevel(VT::LogLevels l)
+const char* getLogLevel(VT::LogLevel l)
 {
     switch (l)
     {
-    case VT::LogLevels::Debug:
+    case VT::LL_Debug:
         return "Debug";
-    case VT::LogLevels::Info:
+    case VT::LL_Info:
         return "Info";
-    case VT::LogLevels::Warning:
+    case VT::LL_Warning:
         return "Warning";
-    case VT::LogLevels::Error:
+    case VT::LL_Error:
         return "Error";
-    case VT::LogLevels::Critical:
+    case VT::LL_Critical:
         return "Critical";
     default:
         assert(0);
@@ -81,276 +50,178 @@ const char* getLogLevel(VT::LogLevels l)
 }
 
 
-LogWorker::LogWorker(
-            vector<LoggerData*> loggers,
-            LogLevels msg_level,
-            unsigned int options) :
-    loggers_(loggers),
-    valid_(true),
-    msg_level_(msg_level),
-    options_(options)
+namespace
 {
-    for (LoggerData* l : loggers_)
+    bool is_set(unsigned int options, VT::LogOpts opt)
     {
-        if (l->lock_ && l->use_lock_) l->lock_->enter();
+        return (options & opt) == opt;
+    }
 
-        std::ostream& stream_ = get_stream(l);
+    void set(unsigned int& options, VT::LogOpts opt)
+    {
+        options |= opt;
+    }
 
-        if (not_set(l, LogOpt::NoTimestamp))
-            stream_ << createTimestamp() << " ";
-
-        if (not_set(l, LogOpt::NoLoggerName))
-            stream_ << "[" << l->name_ << "] ";
-
-        if (not_set(l, LogOpt::NoLogLevel))
-            stream_ << std::left << std::setw(10) << "<" + std::string(getLogLevel(msg_level_)) + ">" << " ";
+    void unset(unsigned int& options, VT::LogOpts opt)
+    {
+        options &= ~opt;
     }
 }
 
-LogWorker::LogWorker(LogWorker&& other) :
-    loggers_(other.loggers_),
-    valid_(true),
-    msg_level_(other.msg_level_),
-    options_(other.options_)
+
+
+struct VT::Logger::Impl
 {
-    // set so that other worker won't invoke usual destructor operations
-    other.valid_ = false;
-}
+    Impl(const std::string& name) :
+        name        (name),
+        stream      (nullptr),
+        cout_level  (LL_NoLogging),
+        cerr_level  (LL_NoLogging),
+        stream_level(LL_NoLogging),
+        default_opts(LO_Default)
+    { }
 
-LogWorker::~LogWorker()
+    std::string                    name;
+    std::shared_ptr<std::FILE>     stream;
+    LogLevel                       cout_level;
+    LogLevel                       cerr_level;
+    LogLevel                       stream_level;
+    unsigned int                   default_opts;  // LogOpts flags
+};
+
+
+VT::Logger::Logger(const std::string& name)
+    : pimpl_(new Impl(name))
 {
-    if (valid_)
-    {
-        for (LoggerData* l : loggers_)
-        {
-            std::ostream& stream_ = get_stream(l);
-
-            if (not_set(l, LogOpt::NoEndl))
-                stream_ << std::endl;
-            else if (not_set(l, LogOpt::NoFlush))
-                stream_ << std::flush;
-
-            if (l->lock_ && l->use_lock_) l->lock_->leave();
-        }
-    }
-}
-
-inline bool LogWorker::is_set(LoggerData* l, LogOpts opt) const
-{
-    return ( (options_ & opt) == opt || (l->default_opts_ & opt) == opt );
-}
-
-inline bool LogWorker::not_set(LoggerData* l, LogOpts opt) const
-{
-    return ( (options_ & opt) != opt && (l->default_opts_ & opt) != opt );
-}
-
-inline void LogWorker::set(LogOpts opt)
-{
-    options_ |= opt;
-}
-
-ostream&
-    LogWorker::get_stream(LoggerData* data)
-{
-    switch (data->type_)
-    {
-    case LogType::Custom:
-        return *(data->stream_);
-    case LogType::Cout:
-        return std::cout;
-    case LogType::Cerr:
-        return std::cerr;
-    default:
-        return *dev_null_;
-    }
-}
-
-LogWorker&
-    VT::detail_::LogWorker::nospace()
-{
-    set(LogOpt::NoSpace);
-    return *this;
-}
-
-LogWorker&
-    VT::detail_::LogWorker::noendl()
-{
-    set(LogOpt::NoEndl);
-    return *this;
-}
-
-LogWorker&
-    VT::detail_::LogWorker::operator<<(ostream& (*manip)(ostream&))
-{
-    for (LoggerData* l : loggers_)
-    {
-        manip(get_stream(l));
-    }
-	return *this;
-}
-
-LogWorker&
-    VT::detail_::LogWorker::operator<<(std::ios_base& (*manip)(std::ios_base&))
-{
-    for (LoggerData* l : loggers_)
-    {
-        manip(get_stream(l));
-    }
-	return *this;
-}
-
-
-// usual logger
-VT::Logger::Logger(
-        const string& name,
-        detail_::LogTypes type,
-        std::shared_ptr<ostream> stream,
-        LogLevels level) : 
-    pimpl_(std::make_shared<LoggerData>())
-{
-    pimpl_->name_ = name;
-    pimpl_->type_ = type;
-    pimpl_->stream_ = stream;
-    pimpl_->log_level_ = level;
-}
-
-// noop logger
-VT::Logger::Logger(const string& name) :
-    pimpl_(std::make_shared<LoggerData>())
-{
-    pimpl_->name_ = name;
-}
-
-bool VT::Logger::has_actual_stream() const
-{
-    return (pimpl_->type_ == detail_::LogType::Custom ||
-            pimpl_->type_ == detail_::LogType::Cout ||
-            pimpl_->type_ == detail_::LogType::Cerr);
 }
 
 VT::Logger::~Logger()
-{ }
-
-VT::Logger::Logger(const Logger& other) :
-    pimpl_(other.pimpl_)
-{ }
-
-VT::Logger& VT::Logger::operator=(const Logger& rhs)
 {
-    pimpl_ = rhs.pimpl_;
+    delete pimpl_;
+}
+
+VT::Logger::Logger(const Logger& other)
+    : pimpl_(new Impl(*other.pimpl_))
+{
+}
+
+VT::Logger& VT::Logger::operator=(Logger other)
+{
+    swap(other);
     return *this;
 }
 
-VT::Logger& VT::Logger::set_opt(LogOpts options)
+void VT::Logger::swap(Logger& other)
 {
-    pimpl_->default_opts_ |= options;
-    return *this;
+    std::swap(pimpl_, other.pimpl_);
 }
 
-VT::Logger& VT::Logger::unset_opt(LogOpts options)
+
+void VT::Logger::set_cout(LogLevel reporting_level)
 {
-    pimpl_->default_opts_ &= ~options;
-    return *this;
+    pimpl_->cout_level = reporting_level;
 }
 
-VT::Logger& VT::Logger::reset_opts()
+void VT::Logger::set_cerr(LogLevel reporting_level)
 {
-    pimpl_->default_opts_ = LogOpt::Default;
-    return *this;
+    pimpl_->cerr_level = reporting_level;
 }
 
-VT::Logger& VT::Logger::set_naked()
+void VT::Logger::set_stream(std::FILE* stream, LogLevel reporting_level)
 {
-    pimpl_->default_opts_ = LogOpt::NoEndl | LogOpt::NoFlush | 
-                            LogOpt::NoLoggerName | LogOpt::NoLogLevel |
-                            LogOpt::NoSpace | LogOpt::NoTimestamp;
-    return *this;
-}
+    assert(stream != nullptr && reporting_level != LL_NoLogging ||
+           stream == nullptr && reporting_level == LL_NoLogging);
 
-void VT::Logger::disable_locking()
-{
-    pimpl_->use_lock_ = false;
-}
-
-void VT::Logger::enable_locking()
-{
-    pimpl_->use_lock_ = true;
-}
-
-LogWorker VT::Logger::operator()(LogLevels level) const
-{
-    if (level < pimpl_->log_level_)
-        return detail_::LogWorker();
-
-    if (!has_actual_stream())
+    if (stream == nullptr)
     {
-        return detail_::LogWorker();
+        pimpl_->stream = nullptr;
+        pimpl_->stream_level = LL_NoLogging;
     }
-
-    vector<LoggerData*> ls;
-    ls.push_back(pimpl_.get());
-
-    return detail_::LogWorker(ls, level, pimpl_->default_opts_);
-}
-
-
-LogWorker VT::MetaLogger::operator()(LogLevels level) const
-{
-    vector<LoggerData*> ls;
-    
-    for (auto logger : loggers_)
+    else
     {
-        if (level >= logger.pimpl_->log_level_ && logger.has_actual_stream())
-            ls.push_back(logger.pimpl_.get());
+        pimpl_->stream = std::shared_ptr<std::FILE>(stream, std::fclose);
+        pimpl_->stream_level = reporting_level;
     }
-
-    return detail_::LogWorker(ls, level, LogOpt::Default);
 }
 
 
-VT::Logger& VT::LogFactory::stream(const string& name,
-                                   std::shared_ptr<ostream> s,
-                                   LogLevels level)
+void VT::Logger::set(LogOpts opt)
 {
-    return loggers_[name] = Logger(name, detail_::LogType::Custom, s, level);
+    ::set(pimpl_->default_opts, opt);
 }
 
-VT::Logger& VT::LogFactory::cout(const string& name,
-                                 LogLevels level)
+void VT::Logger::unset(LogOpts opt)
 {
-    return loggers_[name] = Logger(name,
-                                   detail_::LogType::Cout,
-                                   std::shared_ptr<ostream>(),
-                                   level);
+    ::unset(pimpl_->default_opts, opt);
 }
 
-VT::Logger& VT::LogFactory::cerr(const string& name,
-                                 LogLevels level)
+void VT::Logger::reset()
 {
-    return loggers_[name] = Logger(name,
-                                   detail_::LogType::Cerr,
-                                   std::shared_ptr<ostream>(),
-                                   level);
+    pimpl_->default_opts = LO_Default;
 }
 
-VT::Logger& VT::LogFactory::noop(const string& name)
+
+VT::detail_::LogWorker VT::Logger::log(LogLevel level)
 {
-    return loggers_[name] = Logger(name);
+    return detail_::LogWorker(this, level, pimpl_->name, pimpl_->default_opts);
+}
+VT::detail_::LogWorker VT::Logger::debug()   { return log(LL_Debug); }
+VT::detail_::LogWorker VT::Logger::info()    { return log(LL_Info); }
+VT::detail_::LogWorker VT::Logger::warning() { return log(LL_Warning); }
+VT::detail_::LogWorker VT::Logger::error()   { return log(LL_Error); }
+VT::detail_::LogWorker VT::Logger::critical(){ return log(LL_Critical); }
+
+
+void VT::Logger::log_worker(LogLevel level, const std::string& msg)
+{
+    // fprintf is thread-safe on line level
+
+    if (level >= pimpl_->cout_level)
+    {
+        fprintf(stdout, "%s", msg.c_str());
+        fflush(stdout);
+    }
+    if (level >= pimpl_->cerr_level)
+    {
+        fprintf(stderr, "%s", msg.c_str());
+        fflush(stderr);
+    }
+    if (level >= pimpl_->stream_level)
+    {
+        fprintf(pimpl_->stream.get(), "%s", msg.c_str());
+        fflush(pimpl_->stream.get());
+    }
 }
 
-VT::Logger& VT::LogFactory::get(const string& name)
+
+
+VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts)
+    : logger_(logger)
+    , msg_level_(level)
+    , msg_stream_()
+    , options_(opts)
 {
-    auto it = loggers_.find(name);
-    if (it == loggers_.end())
-        throw std::runtime_error("Logger \"" + name + "\" does not exist");
-    return it->second;
+    if (!is_set(opts, LO_NoTimestamp))
+        msg_stream_ << createTimestamp() << " ";
+
+    if (!is_set(opts, LO_NoLoggerName))
+        msg_stream_ << "[" << name << "] ";
+
+    std::ios::fmtflags f(msg_stream_.flags());
+
+    if (!is_set(opts, LO_NoThreadId))
+        msg_stream_ << "(0x" << std::hex << VT::Thread::current_thread_id() << ") ";
+
+    msg_stream_.flags(f);  // restore state to undo std::hex changes to stream
+
+    if (!is_set(opts, LO_NoLogLevel))
+        msg_stream_ << std::left << std::setw(10) << "<" + std::string(getLogLevel(msg_level_)) + ">" << " ";
 }
 
-VT::MetaLogger& VT::LogFactory::get_meta(const std::string&  name)
+VT::detail_::LogWorker::~LogWorker()
 {
-    auto it = metaloggers_.find(name);
-    if (it == metaloggers_.end())
-        throw std::runtime_error("MetaLogger \"" + name + "\" does not exist");
-    return it->second;
+    if (!is_set(options_, LO_NoEndl))
+        msg_stream_ << std::endl;
+
+    logger_->log_worker(msg_level_, msg_stream_.str());
 }

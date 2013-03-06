@@ -8,13 +8,13 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <sstream>
+#include <cstdio>
 
 
 // TODO:
 //   * implement coloring (separate implementations for each platform)
-//   * implement something similar to printf
 //   * add custom timestamp formatting
-
 /*
     Example:
         See VTCPPLoggerTest.cpp for example usage
@@ -23,274 +23,154 @@
 namespace VT
 {
     // forward declarations
-    class Logger;
-    class LogFactory;
+    namespace detail_ { class LogWorker; }
     
 
     // enumerations
-    namespace LogLevel
+
+    enum LogLevel
     {
-        enum LogLevels_
-        {
-            Debug       = 1,
-            Info        = 2,
-            Warning     = 3,
-            Error       = 4,
-            Critical    = 5
-        };
+        LL_Debug       = 1,
+        LL_Info        = 2,
+        LL_Warning     = 3,
+        LL_Error       = 4,
+        LL_Critical    = 5,
+        LL_NoLogging   = 6
+    };
 
-    }
-    typedef LogLevel::LogLevels_ LogLevels;
-
-
-    namespace LogOpt
+    enum LogOpts
     {
-        enum LogOpts_ : unsigned int
-        {
-            Default     = 0u,
-            NoSpace     = (1u << 0),
-            NoEndl      = (1u << 1),
-            NoLogLevel  = (1u << 2),
-            NoTimestamp = (1u << 3),
-            NoFlush     = (1u << 4),
-            NoLoggerName= (1u << 5)
-        };
-    }
-    typedef LogOpt::LogOpts_ LogOpts;
+        LO_Default     = 0u,
+        LO_NoEndl      = (1u << 0),
+        LO_NoLogLevel  = (1u << 1),
+        LO_NoTimestamp = (1u << 2),
+        LO_NoFlush     = (1u << 3),
+        LO_NoLoggerName= (1u << 4),
+        LO_NoThreadId  = (1u << 5),
+        LO_NoSpace     = (1u << 6)
+    };
 
 
-    // implementation details
-    namespace detail_
-    {
-        namespace LogType
-        {
-            enum LogTypes_
-            {
-                Cout,
-                Cerr,
-                Custom,
-                Noop
-            };
-        }
-        typedef LogType::LogTypes_ LogTypes;
-
-
-        struct LoggerData;
-
-        
-        template <class cT, class traits = std::char_traits<cT> >
-        class basic_nullbuf: public std::basic_streambuf<cT, traits> {
-            typename traits::int_type overflow(typename traits::int_type c)
-            {
-                return traits::not_eof(c); // indicate success
-            }
-        };
-        template <class cT, class traits = std::char_traits<cT> >
-        class basic_onullstream: public std::basic_ostream<cT, traits> {
-            public:
-                basic_onullstream():
-                std::basic_ios<cT, traits>(&m_sbuf),
-                std::basic_ostream<cT, traits>(&m_sbuf)
-                {
-                    this->init(&m_sbuf);
-                }
-
-            private:
-                basic_nullbuf<cT, traits> m_sbuf;
-        };
-        typedef basic_onullstream<char> onullstream;
-        typedef basic_onullstream<wchar_t> wonullstream;
-        extern std::shared_ptr<onullstream> dev_null_;
-        
-
-        class LogWorker
-        {
-        private:
-            std::vector<LoggerData*> loggers_;
-            bool valid_;                // if not valid - this object has been moved
-            LogLevels msg_level_;
-            unsigned int options_;
-
-        private:
-            // helpers
-            bool is_set(LoggerData* l, LogOpts opt) const;
-            bool not_set(LoggerData* l, LogOpts opt) const;
-            void set(LogOpts opt);
-
-            std::ostream& get_stream(LoggerData* data);
-
-            // no copying allowed (use move)
-            LogWorker(const LogWorker& other);
-            LogWorker& operator=(const LogWorker& rhs);
-
-        public:
-            explicit
-            LogWorker(std::vector<LoggerData*> loggers = std::vector<LoggerData*>(),
-                      LogLevels msg_level = LogLevel::Debug,
-                      unsigned int options = LogOpt::Default);
-
-            // just in case RVO will not be used
-            LogWorker(LogWorker&& other);
-
-            // As soon as it goes out of scope it releases the lock and flushes output.
-            // It should usually be created as temporary from Logger and so
-            // it would go out of scope after the semicolon
-            ~LogWorker();
-
-            // setting options
-            LogWorker& nospace();
-            LogWorker& noendl();
-
-            // printers
-            template <typename T>
-            LogWorker& operator<<(T arg)
-            {
-                for (LoggerData* l : loggers_)
-                {
-                    std::ostream& stream_ = get_stream(l);
-                    stream_ << arg;
-                    if (not_set(l, LogOpt::NoSpace))
-                        stream_ << " ";
-                }
-                return *this;
-            }
-
-            LogWorker& operator<<(std::ostream& (*manip)(std::ostream&));
-            LogWorker& operator<<(std::ios_base& (*manip)(std::ios_base&));
-        
-            template<typename Arg1, typename... Args>
-            inline void log(const Arg1& arg1, const Args&... args)
-            {
-                /*
-                 * Recursive function to keep streaming the arguments 
-                 * one at a time until the last argument is reached and 
-                 * the specialization below is called. 
-                 */
-                (*this) << arg1;        // implement in terms of LogWorker::operator<<()
-                log(args...);
-            }
-
-            /* A specialization to terminate the recursion.  */
-            inline void log() const {  }
-        };
-
-    }
-
-    
     class Logger
     {
-    private:
-        std::shared_ptr<detail_::LoggerData> pimpl_;
-
-    private:
-        // usual logger
-        Logger( const std::string& name,
-                detail_::LogTypes type,
-                std::shared_ptr<std::ostream> stream,
-                LogLevels level);
-
-        // noop logger
-        explicit
-        Logger(const std::string& name);
-
-        bool has_actual_stream() const;
-
-        friend class LogFactory;
-        friend class MetaLogger;
-
     public:
-        // default constructed logger should not be used (here only because map requires it)
-        Logger() { }
+        Logger(const std::string& name);
         ~Logger();
 
         Logger(const Logger& other);
-        Logger& operator=(const Logger& rhs);
+        Logger& operator=(Logger other);
 
-        Logger& set_opt(LogOpts options);
-        Logger& unset_opt(LogOpts options);
-        Logger& reset_opts();
-
-        // turn off printing any additional info (just raw text that user sends)
-        Logger& set_naked();
-
-        void disable_locking();
-        void enable_locking();
-
-        // use like this: logger() << "Hello" << std::hex << 10 << "world";
-        // alternative syntax: logger().log("Hello", std::hex, 10, "world");
-        detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const;
-    };
-    
-
-    class MetaLogger
-    {
-    private:
-        std::string name_;
-        std::vector<Logger> loggers_;
-
-        friend LogFactory;
-
-    private:
-        MetaLogger(std::string name) : name_(name) { }
-
-    public:
-        MetaLogger() { }
-
-        detail_::LogWorker operator()(LogLevels level = LogLevel::Debug) const;
-    };
+        void swap(Logger& other);
 
 
-    // you should probably create and store a static instance of this class in your application
-    class LogFactory
-    {
-    private:
-        std::map<std::string, Logger> loggers_;
-        std::map<std::string, MetaLogger> metaloggers_;
+        // convenience methods
 
-    private:
-        void meta_helper(MetaLogger&) { }
-
-        template <typename... Args>
-        void meta_helper(MetaLogger& ml, std::string logname, Args... logger_names)
+        static Logger cout(const std::string& name, LogLevel reporting_level = LL_Debug)
         {
-            auto it = loggers_.find(logname);
-            if (it == loggers_.end())
-                throw std::runtime_error("Logger \"" + logname + "\" does not exist");
-            ml.loggers_.push_back(it->second);
+            Logger l(name);
+            l.set_cout(reporting_level);
+            return l;
+        }
 
-            meta_helper(ml, logger_names...);
+        static Logger cerr(const std::string& name, LogLevel reporting_level = LL_Debug)
+        {
+            Logger l(name);
+            l.set_cerr(reporting_level);
+            return l;
+        }
+
+        static Logger stream(const std::string& name,
+                             std::FILE* stream,
+                             LogLevel reporting_level = LL_Debug)
+        {
+            Logger l(name);
+            l.set_stream(stream, reporting_level);
+            return l;
         }
 
 
-    public:
-        /*
-            Use    stream("logger_name", make_shared<std::ofstream>("filename"))   to create file logger
-            or     cout("logger_name")                                             to create std::cout logger
-            or     cerr("logger_name")                                             to create std::cerr logger
-            or     noop("logger_name")                                             to create no-op logger
+        // enable certain streams
+        // passing LL_NoLogging desables the stream
+        // pass nullptr as stream in set_stream when passing LL_NoLogging
 
-            Use    get("logger_name")    to retrieve existing logger
-        */
-        Logger& stream(const std::string& name,
-                       std::shared_ptr<std::ostream> stream,
-                       LogLevels level = LogLevel::Debug);
+        void set_cout(LogLevel reporting_level = LL_Debug);
+        void set_cerr(LogLevel reporting_level = LL_Debug);
 
-        Logger& cout(const std::string& name, LogLevels level = LogLevel::Debug);
-        Logger& cerr(const std::string& name, LogLevels level = LogLevel::Debug);
-        Logger& noop(const std::string& name);
+        // logger assumes control of FILE object and closes it when
+        // all copies of this logger are destroyed or have new stream set
+        void set_stream(std::FILE* stream, LogLevel reporting_level = LL_Debug);
 
-        template <typename... Args>
-        MetaLogger& meta(const std::string& name, Args... logger_names)
-        {
-            MetaLogger ml(name);
-            meta_helper(ml, logger_names...);
-            return metaloggers_[name] = ml;
-        }
 
-        // get existing logger by name
-        Logger& get(const std::string& name);
+        // modify logger options
 
-        MetaLogger& get_meta(const std::string&  name);
+        void set(LogOpts opt);
+        void unset(LogOpts opt);
+        void reset();
+
+
+        // returns temprorary object for atomic write
+
+        detail_::LogWorker log(LogLevel level);
+
+        detail_::LogWorker debug();
+        detail_::LogWorker info();
+        detail_::LogWorker warning();
+        detail_::LogWorker error();
+        detail_::LogWorker critical();
+
+    private:
+        friend detail_::LogWorker;
+
+
+        // work function
+
+        void log_worker(LogLevel level, const std::string& msg);
+        
+
+        // private data
+
+        struct Impl;
+        Impl* pimpl_;
     };
 
+
+    namespace detail_
+    {
+        class LogWorker
+        {
+        public:
+            LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts);
+            ~LogWorker();
+
+
+            // printers
+
+            template <typename T>
+            LogWorker& operator<<(T arg)
+            {
+                msg_stream_ << arg;
+                if (!(options_ & LO_NoSpace))
+                    msg_stream_ << " ";
+                return *this;
+            }
+
+            LogWorker& operator<<(std::ostream& (*manip)(std::ostream&))
+            {
+                manip(msg_stream_);
+                return *this;
+            }
+
+            LogWorker& operator<<(std::ios_base& (*manip)(std::ios_base&))
+            {
+                manip(msg_stream_);
+                return *this;
+            }
+
+        private:
+            Logger*            logger_;
+            LogLevel           msg_level_;
+            std::ostringstream msg_stream_;
+            unsigned int       options_;
+        };
+    }
 }

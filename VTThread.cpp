@@ -56,6 +56,16 @@ unsigned long WINAPI VT::Thread::thread_start( void* params )
     return 0;
 }
 
+void VT::Thread::sleep(int time_ms)
+{
+    Sleep(time_ms);
+}
+
+unsigned long VT::Thread::current_thread_id()
+{
+    return GetCurrentThreadId();
+}
+
 VT::Thread::Thread()
     : thread_handle_(NULL)
     , state_(NotStarted)
@@ -114,14 +124,19 @@ bool VT::Thread::join( int timeout_millis )
     }
 }
 
-bool VT::Thread::isRunning()
+bool VT::Thread::isRunning() const
 {
     VT::CSLocker lock(state_lock_);
     return ( state_ == Running || state_ == Init );
 }
 
-bool VT::Thread::isFinished()
+bool VT::Thread::isFinished() const
 {
     VT::CSLocker lock(state_lock_);
     return ( state_ == Finished );
+}
+
+unsigned long VT::Thread::id() const
+{
+    return GetThreadId(thread_handle_);
 }

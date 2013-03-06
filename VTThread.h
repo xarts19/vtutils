@@ -13,9 +13,14 @@ namespace VT
 
         void start();
         bool join( int timeout_millis = -1 );
-        bool isRunning();
-        bool isFinished();
+        bool isRunning() const;
+        bool isFinished() const;
         virtual void run() = 0;
+
+        unsigned long id() const;
+        
+        static void sleep(int time_ms);
+        static unsigned long current_thread_id();
 
     private:
         typedef void* HANDLE;
@@ -29,7 +34,7 @@ namespace VT
     private:
         HANDLE thread_handle_;
         int state_;
-        VT::CriticalSection state_lock_;
+        mutable VT::CriticalSection state_lock_;
     };
 
 };
