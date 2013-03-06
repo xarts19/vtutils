@@ -1,9 +1,14 @@
 #pragma once
 
-#include "VTCriticalSection.h"
 
 namespace VT
 {
+    namespace detail_
+    {
+        namespace ThreadState {
+            enum ThreadState {Running, Waiting, Finished, NotStarted, Init};
+        }
+    }
 
     class Thread
     {
@@ -23,18 +28,12 @@ namespace VT
         static unsigned long current_thread_id();
 
     private:
-        typedef void* HANDLE;
-
-        //prevent copying
+        // prevent copying
         Thread( const Thread& );
         Thread& operator=( const Thread& );
 
-        static unsigned long __stdcall thread_start( void* params );
-
-    private:
-        HANDLE thread_handle_;
-        int state_;
-        mutable VT::CriticalSection state_lock_;
+        struct Impl;
+        Impl* pimpl_;
     };
 
 };

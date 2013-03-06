@@ -10,10 +10,11 @@ struct CTest : public VT::Thread
 
     void run()
     {
-        for (int i = 0; i < 100; ++i)
+        for (int i = 0; i < 40; ++i)
         {
-            // VT::Thread::sleep(1000);
-            log->debug() << i << "We" << "are" << "spamming";
+            VT::Thread::sleep(1);
+            log->debug() << i << "We" << "are" << "spamming" << std::endl
+                         << "and" << "splitting" << "the lines" << i;
         }
     }
 };
