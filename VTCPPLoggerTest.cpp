@@ -12,7 +12,7 @@ struct CTest : public VT::Thread
     {
         for (int i = 0; i < 40; ++i)
         {
-            VT::Thread::sleep(1);
+            VT::Thread::sleep(0);
             log->debug() << i << "We" << "are" << "spamming" << std::endl
                          << "and" << "splitting" << "the lines" << i;
         }

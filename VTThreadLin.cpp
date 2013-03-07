@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <limits.h>
 
+#include <time.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
@@ -36,30 +37,59 @@ struct VT::Thread::Impl
     Impl()
         : thread_handle()
         , state(detail_::ThreadState::NotStarted)
-        , state_lock()
-    { }
+        , finished_cond()
+        , lock()
+    {
+        int ret = pthread_cond_init(&finished_cond, nullptr);
+        if (ret != 0)
+            throw std::runtime_error("Failed to init pthread_cond_t finished_cond variable");
+        ret = pthread_mutex_init(&lock, nullptr);
+        if (ret != 0)
+            throw std::runtime_error("Failed to init pthread_mutex_t finished_lock variable");
+    }
+    
+    ~Impl()
+    {
+        int ret = pthread_cond_destroy(&finished_cond);
+        assert(ret == 0);
+        ret = pthread_mutex_destroy(&lock);
+        assert(ret == 0);
+    }
 
     // function of type THREAD_START_LINUX
     static void* thread_start(void* params);
 
     pthread_t  thread_handle;
     int        state;
-    mutable VT::CriticalSection state_lock;
+
+    pthread_cond_t  finished_cond;
+    pthread_mutex_t lock;
 };
 
 
 void* VT::Thread::Impl::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
-    {
-        VT::CSLocker lock(t->pimpl_->state_lock);
-        t->pimpl_->state = detail_::ThreadState::Running;
-    }
+
+    int ret = pthread_mutex_lock(&t->pimpl_->lock);
+    assert(ret == 0);
+
+    t->pimpl_->state = detail_::ThreadState::Running;
+
+    ret = pthread_mutex_unlock(&t->pimpl_->lock);
+    assert(ret == 0);
+    
     t->run();
-    {
-        VT::CSLocker lock(t->pimpl_->state_lock);
-        t->pimpl_->state = detail_::ThreadState::Finished;
-    }
+
+    ret = pthread_mutex_lock(&t->pimpl_->lock);
+    assert(ret == 0);
+
+    t->pimpl_->state = detail_::ThreadState::Finished;
+    ret = pthread_cond_signal(&t->pimpl_->finished_cond);
+    assert(ret == 0);
+
+    ret = pthread_mutex_unlock(&t->pimpl_->lock);
+    assert(ret == 0);
     
     return nullptr;
 }
@@ -88,67 +118,89 @@ VT::Thread::~Thread()
 
 void VT::Thread::start()
 {
-    {
-        VT::CSLocker lock(pimpl_->state_lock);
-        if (pimpl_->state != detail_::ThreadState::NotStarted)
-            throw std::runtime_error("Thread already started");
-        pimpl_->state = detail_::ThreadState::Init;
-    }
+    int ret = pthread_mutex_lock(&pimpl_->lock);
+    assert(ret == 0);
 
-    pthread_attr_t attr;
-    int ret = pthread_attr_init(&attr);
-    if (ret != 0)
-        throw std::runtime_error( "Failed to init thread attributes" );
-    
-    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    assert(pimpl_->state == detail_::ThreadState::NotStarted && "Attempt to start VT::Thread twice");
+
+    pimpl_->state = detail_::ThreadState::Init;
+
+    ret = pthread_mutex_unlock(&pimpl_->lock);
     assert(ret == 0);
     
-    ret = pthread_create(&pimpl_->thread_handle, &attr, &Impl::thread_start, this);
+    ret = pthread_create(&pimpl_->thread_handle, nullptr, &Impl::thread_start, this);
     
-    ret = pthread_attr_destroy(&attr);
-    if (ret != 0)
-        ; // ignore
-
     if ( ret != 0 )
         throw std::runtime_error( "Failed to create thread. Error: " + get_lin_error_msg(ret) );
 }
 
 bool VT::Thread::join( int timeout_millis )
 {
-    assert( timeout_millis >= -1 );
+    assert( timeout_millis >= -1 && "Incorrect timeout value for VT::Thread::join" );
+    
+    struct timespec timeout;
+    
+    int ret = pthread_mutex_lock(&pimpl_->lock);
+    assert(ret == 0);
 
+    assert(pimpl_->state != detail_::ThreadState::NotStarted && "Attempt to join not started VT::Thread");
+    
+    if (timeout_millis != -1)
     {
-        VT::CSLocker lock(pimpl_->state_lock);
-        if ( pimpl_->state == detail_::ThreadState::NotStarted || pimpl_->state == detail_::ThreadState::Finished )
-            return true;
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec += timeout_millis / 1000;
+        timeout.tv_nsec += (timeout_millis % 1000) * 1000000;
+        if (timeout.tv_nsec > 1000000000)
+        {
+            timeout.tv_sec += 1;
+            timeout.tv_nsec -= 1000000000;
+        }
+    }
+    
+    ret = 0;
+    while (pimpl_->state != detail_::ThreadState::Finished && ret == 0)
+    {
+        if (timeout_millis != -1)
+            ret = pthread_cond_timedwait(&pimpl_->finished_cond, &pimpl_->lock, &timeout);
+        else
+            ret = pthread_cond_wait(&pimpl_->finished_cond, &pimpl_->lock);
     }
 
-    int result = WaitForSingleObject( pimpl_->thread_handle, ( timeout_millis == -1 ? INFINITE : timeout_millis ) );
-
-    if ( result == WAIT_TIMEOUT )
-    {
+    ret = pthread_mutex_unlock(&pimpl_->lock);
+    assert(ret == 0);
+    
+    if (ret == 0)
+        return true;  // thread finished
+    else if (ret == ETIMEDOUT)
         return false;
-    }
-    else if ( result == WAIT_FAILED )
-    {
-        throw std::runtime_error( "Something went terribly wrong inside MyThread class. Failed to wait on running thread." );
-    }
     else
-    {
-        return true;
-    }
+        assert(0 && "Error in pthread_cond_timedwait other than timeout");
 }
 
 bool VT::Thread::isRunning() const
 {
-    VT::CSLocker lock(pimpl_->state_lock);
-    return ( pimpl_->state == detail_::ThreadState::Running || pimpl_->state == detail_::ThreadState::Init );
+    int ret = pthread_mutex_lock(&pimpl_->lock);
+    assert(ret == 0);
+
+    bool cond = pimpl_->state == detail_::ThreadState::Running || pimpl_->state == detail_::ThreadState::Init;
+
+    ret = pthread_mutex_unlock(&pimpl_->lock);
+    assert(ret == 0);
+    
+    return cond;
 }
 
 bool VT::Thread::isFinished() const
 {
-    VT::CSLocker lock(pimpl_->state_lock);
-    return ( pimpl_->state == detail_::ThreadState::Finished );
+    int ret = pthread_mutex_lock(&pimpl_->lock);
+    assert(ret == 0);
+
+    bool cond = pimpl_->state == detail_::ThreadState::Finished;
+
+    ret = pthread_mutex_unlock(&pimpl_->lock);
+    assert(ret == 0);
+    
+    return cond;
 }
 
 unsigned long VT::Thread::id() const
@@ -156,50 +208,3 @@ unsigned long VT::Thread::id() const
     // same comment as in VT::Thread::current_thread_id
     return pimpl_->thread_handle;
 }
-
-
-typedef void* (*THREAD_START_LINUX)(void* lpParameter);
-
-const unsigned int Thread::T_INFINITE = UINT_MAX;
-
-class ThreadLinux : public Thread
-{
-public:
-
-	ThreadLinux(pthread_t thread): _thread(thread) {}
-	~ThreadLinux() {}
-
-	void join(unsigned int timeout)
-	{
-		pthread_join(_thread, NULL);
-	}
-
-private:
-	pthread_t _thread;
-};
-
-Thread* Thread::create(	size_t stack_size,
-						THREAD_START start_address,
-						void* parameter,
-						unsigned int creation_flags,
-						unsigned int* thread_id)
-{
-	pthread_t thread;
-	int fail = pthread_create(&thread, NULL, (THREAD_START_LINUX)start_address, parameter);
-	if(fail)
-	{
-		return NULL;
-	}
-	else
-	{
-		Thread* t = new ThreadLinux(thread);
-		return t;
-	}
-}
-
-void Thread::Sleep(unsigned int time_millisecond)
-{
-	usleep(time_millisecond * 1000);
-}
-
-

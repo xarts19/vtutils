@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VTUtil.h"
 #include "VTCriticalSection.h"
 
 #include <ostream>
@@ -126,7 +127,7 @@ namespace VT
         detail_::LogWorker critical();
 
     private:
-        friend detail_::LogWorker;
+        friend class detail_::LogWorker;
 
 
         // work function
@@ -148,7 +149,11 @@ namespace VT
         public:
             LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts);
             ~LogWorker();
-
+            
+#ifdef __GNUC__
+            LogWorker(LogWorker&& other);
+#endif
+            
 
             // printers
 
@@ -174,6 +179,9 @@ namespace VT
             }
 
         private:
+            // deleted
+            LogWorker& operator=(const LogWorker&);
+            
             Logger*            logger_;
             LogLevel           msg_level_;
             std::ostringstream msg_stream_;

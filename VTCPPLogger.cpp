@@ -262,11 +262,28 @@ VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::str
 
 VT::detail_::LogWorker::~LogWorker()
 {
+    if (!logger_)
+        return;
+    
     if (!is_set(options_, LO_NoEndl))
         msg_stream_ << std::endl;
 
     logger_->log_worker(msg_level_, msg_stream_.str());
 }
+
+#ifdef __GNUC__
+VT::detail_::LogWorker::LogWorker(LogWorker&& other)
+    : logger_(other.logger_)
+    , msg_level_(other.msg_level_)
+    , msg_stream_()
+    , options_(other.msg_level_)
+{
+    // FIXME: use msg_stream_ move constructor to move it
+    // as soon as gcc supports it
+    msg_stream_ << other.msg_stream_.rdbuf();
+    other.logger_ = nullptr;
+}
+#endif
 
 #ifdef _MSC_VER
     #pragma warning(pop)
