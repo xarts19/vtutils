@@ -99,8 +99,7 @@ void VT::Thread::start()
 {
     {
         VT::CSLocker lock(pimpl_->state_lock);
-        if (pimpl_->state != detail_::ThreadState::NotStarted)
-            throw std::runtime_error("Thread already started");
+        assert(pimpl_->state == detail_::ThreadState::NotStarted && "Attempt to start VT::Thread twice");
         pimpl_->state = detail_::ThreadState::Init;
     }
 
@@ -117,6 +116,7 @@ void VT::Thread::start()
 bool VT::Thread::join( int timeout_millis )
 {
     assert( timeout_millis >= -1 );
+    assert( pimpl_->state != detail_::ThreadState::NotStarted && "Attempt to join not started VT::Thread");
 
     {
         VT::CSLocker lock(pimpl_->state_lock);
