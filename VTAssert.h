@@ -35,7 +35,7 @@ namespace Assert
 	enum FailBehavior
 	{
 		Halt,
-		Continue,
+		Continue
 	};
 
 	typedef FailBehavior (*Handler)(const char* condition, 

@@ -110,4 +110,4 @@ namespace VT
         static CriticalSection lock;
         static std::set<std::string> sinks;
     };
-};
+}

@@ -41,7 +41,7 @@ struct special_formatter {
 };
 
 
-int main() {
+int main1() {
     cout << "Empty vector: ";
     cout << vector<int>() << endl;
 

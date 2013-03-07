@@ -3,7 +3,7 @@
 #include "VTStringUtil.h"
 #include "VTTimer.h"
 
-int main(int argc, char** argv)
+int main()
 {
     VT_ASSERT(true);
     

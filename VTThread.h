@@ -36,4 +36,4 @@ namespace VT
         Impl* pimpl_;
     };
 
-};
+}

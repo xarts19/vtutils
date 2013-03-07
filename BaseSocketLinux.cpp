@@ -105,12 +105,12 @@ public:
 		return connect(_socket, a->GetAddr(), a->GetAddrLen());
 	}
 
-	int Recieve(char *buffer, int length, int flags)
+	int Recieve(char *buffer, int length, int /*flags*/)
 	{
 		return recv(_socket, buffer, length, 0);
 	}
 
-	int Send(const char *buffer, int length, int flags)
+	int Send(const char *buffer, int length, int /*flags*/)
 	{
 		return send(_socket, buffer, length, 0);
 	}

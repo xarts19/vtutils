@@ -11,7 +11,9 @@ namespace VT
         double time_elapsed_s() const;
 
     private:
+#ifdef _MSC_VER
         double              PCFreq_;
+#endif
         unsigned long long  counter_start_;
     };
 }

@@ -1,4 +1,6 @@
+#ifdef _MSC_VER
 #pragma warning( disable : 4996 )
+#endif
 #include "VTLogger.h"
 
 #include <time.h>
@@ -10,7 +12,7 @@ namespace
         std::set<std::string> sinks;
         return sinks;
     }
-};
+}
 
 bool VT::Logger::prepend_time = false;
 bool VT::Logger::use_stdout = false;

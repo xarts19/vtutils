@@ -1,4 +1,4 @@
-#include "TcpSocket.h"
+#include "VTTcpSocket.h"
 
 #include <winsock2.h>
 #include <Ws2tcpip.h>
