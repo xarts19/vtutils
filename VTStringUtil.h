@@ -1,75 +1,69 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <cctype>
 
 namespace VT
 {
-    namespace Utils
+    namespace StrUtils
     {
-        namespace String
+        // delimiters is a string of delimiting characters of length 1
+        template <typename Container>
+        void split(const std::string& str,
+                   Container*         result,
+                   const std::string& delimiters = " ")
         {
-            template <typename Container>
-            void split(Container&                            result,
-                       const typename Container::value_type& s,
-                       const typename Container::value_type& delimiters)
+            size_t current;
+            size_t next = -1;
+            do
             {
-                result.clear();
-                size_t current;
-                size_t next = -1;
-                do
-                {
-                    next = s.find_first_not_of( delimiters, next + 1 );
-                    if (next == Container::value_type::npos) break;
-                    next -= 1;
+                next = str.find_first_not_of( delimiters, next + 1 );
+                if (next == std::string::npos) break;
+                next -= 1;
 
-                    current = next + 1;
-                    next = s.find_first_of( delimiters, current );
-                    result.push_back( s.substr( current, next - current ) );
-                }
-                while (next != Container::value_type::npos);
+                current = next + 1;
+                next = str.find_first_of( delimiters, current );
+                result->push_back( str.substr( current, next - current ) );
             }
+            while (next != std::string::npos);
+        }
 
-            std::string trim(const std::string& str,
-                             const std::string& whitespace)
+        std::string trim(const std::string& str,
+                         const std::string& whitespace = " ")
+        {
+            const size_t strBegin = str.find_first_not_of(whitespace);
+            if (strBegin == std::string::npos)
+                return ""; // no content
+
+            const size_t strEnd = str.find_last_not_of(whitespace);
+            const size_t strRange = strEnd - strBegin + 1;
+
+            return str.substr(strBegin, strRange);
+        }
+
+        bool starts_with(const std::string& str,
+                         const std::string& prefix)
+        {
+            if ( str.substr( 0, prefix.size() ) == prefix )
+                return true;
+            return false;
+        }
+
+        namespace detail_
+        {
+            char char_to_lower(char in)
             {
-                const size_t strBegin = str.find_first_not_of(whitespace);
-                if (strBegin == std::string::npos)
-                    return ""; // no content
-
-                const size_t strEnd = str.find_last_not_of(whitespace);
-                const size_t strRange = strEnd - strBegin + 1;
-
-                return str.substr(strBegin, strRange);
+                return static_cast<char>( std::tolower(in) );
             }
+        }
 
-            bool starts_with(const std::string& str,
-                             const std::string& prefix)
-            {
-                if ( str.substr( 0, prefix.size() ) == prefix )
-                    return true;
-                return false;
-            }
-
-            template <typename T>
-            bool insert_if_not_present(std::vector<T>& container, T value)
-            {
-                if ( std::find(container.begin(), container.end(), value ) == container.end() )
-                {
-                    container.push_back(value);
-                    return true;
-                }
-                return false;
-            }
-
-            char _char_to_lower(char in)
-            {
-                return static_cast<char>( ::tolower(in) );
-            } 
-
-            std::string to_lower(std::string str)
-            {
-                std::transform(str.begin(), str.end(), str.begin(), _char_to_lower);
-                return str;
-            }
-        };
-    };
-};
+        std::string to_lower(std::string str)
+        {
+            std::transform(str.begin(), str.end(), str.begin(), detail_::char_to_lower);
+            return str;
+        }
+    }
+}
 
 

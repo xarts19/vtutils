@@ -1,6 +1,6 @@
 #include "VTTimer.h"
 
-#include <exception>
+#include <stdexcept>
 #include <sstream>
 
 #ifndef WIN32_LEAN_AND_MEAN

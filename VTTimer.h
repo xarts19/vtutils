@@ -6,6 +6,7 @@ namespace VT
     {
     public:
         explicit Timer(bool start = true);
+        
         void start();
         double time_elapsed_s() const;
 

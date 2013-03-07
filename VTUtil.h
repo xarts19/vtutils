@@ -4,7 +4,7 @@
 #include <algorithm>
 
 #define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &);
-#define VT_UNUSED( x ) ( &reinterpret_cast< const int& >( x ) )
+#define VT_UNUSED( x ) do { (void)sizeof(x); } while(0)
 
 namespace VT
 {
@@ -20,7 +20,7 @@ namespace VT
             }
             return false;
         }
-    };
-};
+    }
+}
 
 

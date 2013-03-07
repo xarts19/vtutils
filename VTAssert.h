@@ -27,7 +27,7 @@
 #pragma once
 
 #ifndef NDEBUG
-    #define POW2_ASSERTS_ENABLED
+    #define VT_ASSERTS_ENABLED
 #endif
 
 namespace Assert
@@ -52,53 +52,57 @@ namespace Assert
 							   const char* msg, ...);
 }
 
-#define POW2_HALT() __debugbreak()
-#define POW2_UNUSED(x) do { (void)sizeof(x); } while(0)
+#ifdef _MSC_VER
+#define VT_HALT() __debugbreak()
+#else
+#include <signal.h>
+#define VT_HALT() raise(SIGTRAP)
+#endif
 
-#ifdef POW2_ASSERTS_ENABLED
-	#define POW2_ASSERT(cond) \
+#ifdef VT_ASSERTS_ENABLED
+	#define VT_ASSERT(cond) \
 		do \
 		{ \
 			if (!(cond)) \
 			{ \
 				if (Assert::ReportFailure(#cond, __FILE__, __LINE__, 0) == \
 					Assert::Halt) \
-					POW2_HALT(); \
+					VT_HALT(); \
 			} \
 		} while(0)
 
-	#define POW2_ASSERT_MSG(cond, msg, ...) \
+	#define VT_ASSERT_MSG(cond, msg, ...) \
 		do \
 		{ \
 			if (!(cond)) \
 			{ \
 				if (Assert::ReportFailure(#cond, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
 					Assert::Halt) \
-					POW2_HALT(); \
+					VT_HALT(); \
 			} \
 		} while(0)
 
-	#define POW2_ASSERT_FAIL(msg, ...) \
+	#define VT_ASSERT_FAIL(msg, ...) \
 		do \
 		{ \
 			if (Assert::ReportFailure(0, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
 				Assert::Halt) \
-			POW2_HALT(); \
+			VT_HALT(); \
 		} while(0)
 
-	#define POW2_VERIFY(cond) POW2_ASSERT(cond)
-	#define POW2_VERIFY_MSG(cond, msg, ...) POW2_ASSERT_MSG(cond, msg, ##__VA_ARGS__)
+	#define VT_VERIFY(cond) VT_ASSERT(cond)
+	#define VT_VERIFY_MSG(cond, msg, ...) VT_ASSERT_MSG(cond, msg, ##__VA_ARGS__)
 #else
-	#define POW2_ASSERT(condition) \
-		do { POW2_UNUSED(condition); } while(0)
-	#define POW2_ASSERT_MSG(condition, msg, ...) \
-		do { POW2_UNUSED(condition); POW2_UNUSED(msg); } while(0)
-	#define POW2_ASSERT_FAIL(msg, ...) \
-		do { POW2_UNUSED(msg); } while(0)
-	#define POW2_VERIFY(cond) (void)(cond)
-	#define POW2_VERIFY_MSG(cond, msg, ...) \
-		do { (void)(cond); POW2_UNUSED(msg); } while(0)
+	#define VT_ASSERT(condition) \
+		do { VT_UNUSED(condition); } while(0)
+	#define VT_ASSERT_MSG(condition, msg, ...) \
+		do { VT_UNUSED(condition); VT_UNUSED(msg); } while(0)
+	#define VT_ASSERT_FAIL(msg, ...) \
+		do { VT_UNUSED(msg); } while(0)
+	#define VT_VERIFY(cond) (void)(cond)
+	#define VT_VERIFY_MSG(cond, msg, ...) \
+		do { (void)(cond); VT_UNUSED(msg); } while(0)
 #endif
 
-#define POW2_STATIC_ASSERT(x) \
+#define VT_STATIC_ASSERT(x) \
 	typedef char pow2StaticAssert[(x) ? 1 : -1];
