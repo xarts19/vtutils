@@ -8,18 +8,18 @@ namespace VT
     {
     public:
 
-	    TcpSocket();
-	    ~TcpSocket();
+        TcpSocket();
+        ~TcpSocket();
 
-	    bool connect(const char* address, const char* port, int flags = 0);
-	    bool bind(const char* address, const char* port, int flags = 0);
+        bool connect(const char* address, const char* port, int flags = 0);
+        bool bind(const char* address, const char* port, int flags = 0);
 
-	    bool listen();
-	    TcpSocket* accept();
-	    int receive(char *buffer, int length);
-	    int send(const char *buffer, int length);
+        bool listen();
+        TcpSocket* accept();
+        int receive(char *buffer, int length);
+        int send(const char *buffer, int length);
 
-	    bool close();
+        bool close();
 
     private:
         TcpSocket(const TcpSocket&);

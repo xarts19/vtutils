@@ -11,8 +11,8 @@ namespace VT
     public:
         TcpSocketImpl() : _socket(INVALID_SOCKET), _socket_address() {}
 
-        SOCKET		_socket;
-        sockaddr_in	_socket_address;
+        SOCKET      _socket;
+        sockaddr_in _socket_address;
     };
 }
 
@@ -21,148 +21,148 @@ VT::TcpSocket::TcpSocket():	pimpl_(new TcpSocketImpl())
 
 VT::TcpSocket::~TcpSocket()
 {
-	close();
+    close();
     delete pimpl_;
 }
 
 bool VT::TcpSocket::bind(const char* address, const char* port, int flags)
 {
-	// Check if socket already created and close it
-	close();
+    // Check if socket already created and close it
+    close();
 
-	// Create new socket and bind it
-	struct addrinfo *result = NULL;
-	struct addrinfo hints;
-	int status;
+    // Create new socket and bind it
+    struct addrinfo *result = NULL;
+    struct addrinfo hints;
+    int status;
 
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	hints.ai_flags = AI_PASSIVE;
+    ZeroMemory(&hints, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_flags = AI_PASSIVE;
 
-	status = getaddrinfo(address, port, &hints, &result);
-	if (status != 0)
-	{
-		printf("TcpSocket::bind - getaddrinfo failed with error: %d\n", status);
-	
-		return false;
-	}
+    status = getaddrinfo(address, port, &hints, &result);
+    if (status != 0)
+    {
+        printf("TcpSocket::bind - getaddrinfo failed with error: %d\n", status);
+    
+        return false;
+    }
 
-	pimpl_->_socket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-	if (pimpl_->_socket == INVALID_SOCKET)
-	{
-		printf("TcpSocket::bind - socket failed with error: %ld\n", WSAGetLastError());
-	
-		freeaddrinfo(result);
-	
-		return false;
-	}
+    pimpl_->_socket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (pimpl_->_socket == INVALID_SOCKET)
+    {
+        printf("TcpSocket::bind - socket failed with error: %ld\n", WSAGetLastError());
+    
+        freeaddrinfo(result);
+    
+        return false;
+    }
 
     status = ::bind( pimpl_->_socket, result->ai_addr, (int)result->ai_addrlen);
-	if (status == SOCKET_ERROR)
-	{
-		printf("TcpSocket::bind - bind failed with error: %d\n", WSAGetLastError());
-	
-		freeaddrinfo(result);
-		closesocket(pimpl_->_socket);
-		pimpl_->_socket = INVALID_SOCKET;
-	
-		return false;
-	}
+    if (status == SOCKET_ERROR)
+    {
+        printf("TcpSocket::bind - bind failed with error: %d\n", WSAGetLastError());
+    
+        freeaddrinfo(result);
+        closesocket(pimpl_->_socket);
+        pimpl_->_socket = INVALID_SOCKET;
+    
+        return false;
+    }
 
-	freeaddrinfo(result);
+    freeaddrinfo(result);
 
-	return true;
+    return true;
 }
 
 bool VT::TcpSocket::listen()
 {
     if (::listen(pimpl_->_socket, 1) != SOCKET_ERROR)
-	{
-		return true;
-	}
+    {
+        return true;
+    }
 
-	return false;
+    return false;
 }
 
 VT::TcpSocket* VT::TcpSocket::accept()
 {
-	TcpSocket* connection = new TcpSocket();
+    TcpSocket* connection = new TcpSocket();
 
-	int size = sizeof(struct sockaddr);
+    int size = sizeof(struct sockaddr);
     connection->pimpl_->_socket = ::accept(pimpl_->_socket, (struct sockaddr *)&connection->pimpl_->_socket_address, &size);
 
-	if (connection->pimpl_->_socket != INVALID_SOCKET)
-	{
-		return connection;
-	}
-	else
-	{
-		printf("TcpSocket::Accept - accept failed with error: %ld\n", WSAGetLastError());
+    if (connection->pimpl_->_socket != INVALID_SOCKET)
+    {
+        return connection;
+    }
+    else
+    {
+        printf("TcpSocket::Accept - accept failed with error: %ld\n", WSAGetLastError());
 
-		delete connection;
-		return 0;
-	}
+        delete connection;
+        return 0;
+    }
 }
 
 bool VT::TcpSocket::connect(const char* address, const char* port, int flags)
 {
-	// Check if socket already created and close it
-	close();
+    // Check if socket already created and close it
+    close();
 
-	struct addrinfo *result = NULL;
-	struct addrinfo	hints;
+    struct addrinfo *result = NULL;
+    struct addrinfo	hints;
 
-	int status;
+    int status;
 
-	ZeroMemory( &hints, sizeof(hints) );
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
+    ZeroMemory( &hints, sizeof(hints) );
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
 
-	status = getaddrinfo(address, port, &hints, &result);
-	if (status != 0)
-	{
-		printf("TcpSocket::connect - getaddrinfo failed with error: %d\n", status);
-	
-		return false;
-	}
+    status = getaddrinfo(address, port, &hints, &result);
+    if (status != 0)
+    {
+        printf("TcpSocket::connect - getaddrinfo failed with error: %d\n", status);
+    
+        return false;
+    }
 
-	// Attempt to connect to an address until one succeeds
-	for (struct addrinfo *i = result; i != NULL; i = i->ai_next)
-	{
-		// Create a SOCKET for connecting to server
-		pimpl_->_socket = socket(i->ai_family, i->ai_socktype, i->ai_protocol);
-		if (pimpl_->_socket == INVALID_SOCKET)
-		{
-			printf("TcpSocket::connect - socket failed with error: %ld\n", WSAGetLastError());
-		
-			return false;
-		}
+    // Attempt to connect to an address until one succeeds
+    for (struct addrinfo *i = result; i != NULL; i = i->ai_next)
+    {
+        // Create a SOCKET for connecting to server
+        pimpl_->_socket = socket(i->ai_family, i->ai_socktype, i->ai_protocol);
+        if (pimpl_->_socket == INVALID_SOCKET)
+        {
+            printf("TcpSocket::connect - socket failed with error: %ld\n", WSAGetLastError());
+        
+            return false;
+        }
 
-		// Connect to server.
+        // Connect to server.
         status = ::connect(pimpl_->_socket, i->ai_addr, (int)i->ai_addrlen);
-		if (status == SOCKET_ERROR)
-		{
-			printf("TcpSocket::connect - connect failed with error: %ld\n", WSAGetLastError());
+        if (status == SOCKET_ERROR)
+        {
+            printf("TcpSocket::connect - connect failed with error: %ld\n", WSAGetLastError());
 
-			closesocket(pimpl_->_socket);
-			pimpl_->_socket = INVALID_SOCKET;
-			continue;
-		}
-	
-		break;
-	}
+            closesocket(pimpl_->_socket);
+            pimpl_->_socket = INVALID_SOCKET;
+            continue;
+        }
+    
+        break;
+    }
 
-	freeaddrinfo(result);
+    freeaddrinfo(result);
 
-	if (pimpl_->_socket == INVALID_SOCKET)
-	{
-		return false;
-	}
+    if (pimpl_->_socket == INVALID_SOCKET)
+    {
+        return false;
+    }
 
-	return true;
+    return true;
 }
 
 int VT::TcpSocket::receive(char *buffer, int length)
@@ -214,13 +214,13 @@ int VT::TcpSocket::send(const char *buffer, int length)
 
 bool VT::TcpSocket::close()
 {
-	int status = SOCKET_ERROR;
+    int status = SOCKET_ERROR;
 
-	if (pimpl_->_socket != INVALID_SOCKET)
-	{
-		status = closesocket(pimpl_->_socket);
-		pimpl_->_socket = INVALID_SOCKET;
-	}
+    if (pimpl_->_socket != INVALID_SOCKET)
+    {
+        status = closesocket(pimpl_->_socket);
+        pimpl_->_socket = INVALID_SOCKET;
+    }
 
-	return status != SOCKET_ERROR;
+    return status != SOCKET_ERROR;
 }
