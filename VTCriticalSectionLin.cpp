@@ -1,4 +1,5 @@
 #include "VTCriticalSection.h"
+
 #include <pthread.h>
 
 struct VT::CriticalSection::critical_section_data

@@ -1,3 +1,10 @@
+#pragma once
+
+#include <vector>
+#include <algorithm>
+
+#define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &);
+#define VT_UNUSED( x ) ( &reinterpret_cast< const int& >( x ) )
 
 namespace VT
 {

@@ -1,4 +1,7 @@
 #include "VTThread.h"
+#include "VTThread_p.h"
+
+#include "VTCriticalSection.h"
 
 #include <stdexcept>
 #include <string>
@@ -39,22 +42,37 @@ std::string get_win_error_msg()
     return msg;
 }
 
-enum State {Running, Waiting, Finished, NotStarted, Init};
+struct VT::Thread::Impl
+{
+    Impl()
+        : thread_handle(NULL)
+        , state(detail_::ThreadState::NotStarted)
+        , state_lock()
+    { }
 
-unsigned long WINAPI VT::Thread::thread_start( void* params )
+    static unsigned long WINAPI thread_start(void* params);
+
+    HANDLE  thread_handle;
+    int     state;
+    mutable VT::CriticalSection state_lock;
+};
+
+
+unsigned long WINAPI VT::Thread::Impl::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
     {
-        VT::CSLocker lock(t->state_lock_);
-        t->state_ = Running;
+        VT::CSLocker lock(t->pimpl_->state_lock);
+        t->pimpl_->state = detail_::ThreadState::Running;
     }
     t->run();
     {
-        VT::CSLocker lock(t->state_lock_);
-        t->state_ = Finished;
+        VT::CSLocker lock(t->pimpl_->state_lock);
+        t->pimpl_->state = detail_::ThreadState::Finished;
     }
     return 0;
 }
+
 
 void VT::Thread::sleep(int time_ms)
 {
@@ -67,48 +85,46 @@ unsigned long VT::Thread::current_thread_id()
 }
 
 VT::Thread::Thread()
-    : thread_handle_(NULL)
-    , state_(NotStarted)
-    , state_lock_()
+    : pimpl_(new Impl)
 {
 }
 
 VT::Thread::~Thread()
 {
-    if ( thread_handle_ != NULL )
-        CloseHandle( thread_handle_ );
+    if ( pimpl_->thread_handle != NULL )
+        CloseHandle( pimpl_->thread_handle );
 }
 
 void VT::Thread::start()
 {
     {
-        VT::CSLocker lock(state_lock_);
-        if (state_ != NotStarted)
-            throw std::runtime_error("Thread already started");
-        state_ = Init;
+        VT::CSLocker lock(pimpl_->state_lock);
+        assert(pimpl_->state == detail_::ThreadState::NotStarted && "Attempt to start VT::Thread twice");
+        pimpl_->state = detail_::ThreadState::Init;
     }
 
-    HANDLE h = CreateThread( NULL, 0, &thread_start, this,  0, NULL );
+    HANDLE h = CreateThread( NULL, 0, &Impl::thread_start, this, 0, NULL );
 
     if ( h == NULL )
     {
         throw std::runtime_error( "Failed to create thread. Error: " + get_win_error_msg() );
     }
 
-    thread_handle_ = h;
+    pimpl_->thread_handle = h;
 }
 
 bool VT::Thread::join( int timeout_millis )
 {
     assert( timeout_millis >= -1 );
+    assert( pimpl_->state != detail_::ThreadState::NotStarted && "Attempt to join not started VT::Thread");
 
     {
-        VT::CSLocker lock(state_lock_);
-        if ( state_ == NotStarted || state_ == Finished )
+        VT::CSLocker lock(pimpl_->state_lock);
+        if ( pimpl_->state == detail_::ThreadState::NotStarted || pimpl_->state == detail_::ThreadState::Finished )
             return true;
     }
 
-    int result = WaitForSingleObject( thread_handle_, ( timeout_millis == -1 ? INFINITE : timeout_millis ) );
+    int result = WaitForSingleObject( pimpl_->thread_handle, ( timeout_millis == -1 ? INFINITE : timeout_millis ) );
 
     if ( result == WAIT_TIMEOUT )
     {
@@ -126,17 +142,17 @@ bool VT::Thread::join( int timeout_millis )
 
 bool VT::Thread::isRunning() const
 {
-    VT::CSLocker lock(state_lock_);
-    return ( state_ == Running || state_ == Init );
+    VT::CSLocker lock(pimpl_->state_lock);
+    return ( pimpl_->state == detail_::ThreadState::Running || pimpl_->state == detail_::ThreadState::Init );
 }
 
 bool VT::Thread::isFinished() const
 {
-    VT::CSLocker lock(state_lock_);
-    return ( state_ == Finished );
+    VT::CSLocker lock(pimpl_->state_lock);
+    return ( pimpl_->state == detail_::ThreadState::Finished );
 }
 
 unsigned long VT::Thread::id() const
 {
-    return GetThreadId(thread_handle_);
+    return GetThreadId(pimpl_->thread_handle);
 }

@@ -11,6 +11,12 @@
 
 #define TIMESTAMP_FORMAT "%Y-%m-%d %H:%M:%S"
 
+#define LL_DEBUG    "Debug"
+#define LL_INFO     "Info"
+#define LL_WARNING  "Warning"
+#define LL_ERROR    "Error"
+#define LL_CRITICAL "Critical"
+
 // shut up fopen and localtime security warnings in Visual Studio
 #ifdef _MSC_VER
     #pragma warning(push)
@@ -30,15 +36,15 @@ std::string createTimestamp()
 
 VT::LogLevel VT::LogLevel_from_str(const std::string& level)
 {
-    if (level == "Debug")
+    if (level == LL_DEBUG)
         return LL_Debug;
-    else if (level == "Info")
+    else if (level == LL_INFO)
         return LL_Info;
-    else if (level == "Warning")
+    else if (level == LL_WARNING)
         return LL_Warning;
-    else if (level == "Error")
+    else if (level == LL_ERROR)
         return LL_Error;
-    else if (level == "Critical")
+    else if (level == LL_CRITICAL)
         return LL_Critical;
     else
         return LL_NoLogging;
@@ -49,15 +55,15 @@ const char* getLogLevel(VT::LogLevel l)
     switch (l)
     {
     case VT::LL_Debug:
-        return "Debug";
+        return LL_DEBUG;
     case VT::LL_Info:
-        return "Info";
+        return LL_INFO;
     case VT::LL_Warning:
-        return "Warning";
+        return LL_WARNING;
     case VT::LL_Error:
-        return "Error";
+        return LL_ERROR;
     case VT::LL_Critical:
-        return "Critical";
+        return LL_CRITICAL;
     default:
         assert(0);
         return "Unknown";
@@ -256,11 +262,28 @@ VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::str
 
 VT::detail_::LogWorker::~LogWorker()
 {
+    if (!logger_)
+        return;
+    
     if (!is_set(options_, LO_NoEndl))
         msg_stream_ << std::endl;
 
     logger_->log_worker(msg_level_, msg_stream_.str());
 }
+
+#ifdef __GNUC__
+VT::detail_::LogWorker::LogWorker(LogWorker&& other)
+    : logger_(other.logger_)
+    , msg_level_(other.msg_level_)
+    , msg_stream_()
+    , options_(other.msg_level_)
+{
+    // FIXME: use msg_stream_ move constructor to move it
+    // as soon as gcc supports it
+    msg_stream_ << other.msg_stream_.rdbuf();
+    other.logger_ = nullptr;
+}
+#endif
 
 #ifdef _MSC_VER
     #pragma warning(pop)
