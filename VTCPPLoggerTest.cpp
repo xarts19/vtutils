@@ -37,7 +37,7 @@ void concurrent_test()
     thread2.join();
 }
 
-int main2()
+int main3()
 {
     auto logger = VT::Logger::cout("default");
 
@@ -70,7 +70,7 @@ int main2()
     concurrent_test();
 
     // test file logging
-    auto file_logger = VT::Logger::stream("file", std::fopen("log.log", "a"));
+    auto file_logger = VT::Logger::stream("file", "log.log");
     file_logger.debug() << "Test1";
     file_logger.warning() << "Warning!";
 

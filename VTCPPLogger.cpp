@@ -167,7 +167,7 @@ bool VT::Logger::set_stream(std::FILE* stream, LogLevel reporting_level)
     return true;
 }
 
-bool VT::Logger::set_stream(std::string filename, LogLevel reporting_level)
+bool VT::Logger::set_stream(const std::string& filename, LogLevel reporting_level)
 {
     assert((!filename.empty() && reporting_level != LL_NoLogging) ||
            ( filename.empty() && reporting_level == LL_NoLogging));

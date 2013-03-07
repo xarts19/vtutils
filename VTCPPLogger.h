@@ -84,6 +84,15 @@ namespace VT
         }
 
         static Logger stream(const std::string& name,
+                             const std::string& filename,
+                             LogLevel reporting_level = LL_Debug)
+        {
+            Logger l(name);
+            l.set_stream(filename, reporting_level);
+            return l;
+        }
+
+        static Logger stream(const std::string& name,
                              std::FILE* stream,
                              LogLevel reporting_level = LL_Debug)
         {
@@ -106,7 +115,7 @@ namespace VT
 
         // returns false when failed to open the file
         // uses std::fopen, so use apropriate functions to get error codes
-        bool set_stream(std::string filename, LogLevel reporting_level = LL_Debug);
+        bool set_stream(const std::string& filename, LogLevel reporting_level = LL_Debug);
 
 
         // modify logger options

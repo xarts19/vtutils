@@ -1,5 +1,4 @@
 #include "VTThread.h"
-#include "VTThread_p.h"
 
 #include "VTCriticalSection.h"
 

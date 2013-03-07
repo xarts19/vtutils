@@ -25,7 +25,7 @@ VT::TcpSocket::~TcpSocket()
     delete pimpl_;
 }
 
-bool VT::TcpSocket::bind(const char* address, const char* port, int flags)
+bool VT::TcpSocket::bind(const char* address, const char* port, int /*flags*/)
 {
     // Check if socket already created and close it
     close();
@@ -106,7 +106,7 @@ VT::TcpSocket* VT::TcpSocket::accept()
     }
 }
 
-bool VT::TcpSocket::connect(const char* address, const char* port, int flags)
+bool VT::TcpSocket::connect(const char* address, const char* port, int /*flags*/)
 {
     // Check if socket already created and close it
     close();
@@ -167,7 +167,7 @@ bool VT::TcpSocket::connect(const char* address, const char* port, int flags)
 
 int VT::TcpSocket::receive(char *buffer, int length)
 {
-    while ( true )
+    for (;;)
     {
         int received = ::recv(pimpl_->_socket, buffer, length, 0);
         if (received == length)
@@ -192,7 +192,7 @@ int VT::TcpSocket::receive(char *buffer, int length)
 
 int VT::TcpSocket::send(const char *buffer, int length)
 {
-    while (true)
+    for(;;)
     {
         int sent = ::send(pimpl_->_socket, buffer, length, 0);
 

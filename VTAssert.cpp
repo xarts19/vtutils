@@ -30,6 +30,12 @@
 #include <cstdio>
 #include <cstdarg>
 
+// shut up vsnprintf security warning in Visual Studio
+#ifdef _MSC_VER
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+#endif
+
 namespace
 {
 
@@ -91,3 +97,6 @@ Assert::FailBehavior Assert::ReportFailure(const char* condition,
 	return GetAssertHandlerInstance()(condition, message, file, line);
 }
 
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif

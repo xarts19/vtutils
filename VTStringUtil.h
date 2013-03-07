@@ -15,7 +15,7 @@ namespace VT
                    const std::string& delimiters = " ")
         {
             size_t current;
-            size_t next = -1;
+            size_t next = static_cast<size_t>(-1);
             do
             {
                 next = str.find_first_not_of( delimiters, next + 1 );
