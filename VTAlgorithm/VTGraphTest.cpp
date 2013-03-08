@@ -1,4 +1,8 @@
+#include "stdafx.h"
+
 #include "VTGraph.h"
+
+#include <string>
 
 #include <iostream>
 
@@ -15,6 +19,8 @@ inline void vt_graph_test()
     g.add_edge(5, 10, 10);
     g.add_edge(1, 6, 60);
     g.add_edge(6, 10, 60);
+
+    std::map<int, std::wstring, std::less<int>, VT::SSAllocator<std::pair<int, std::wstring>>> m;
 
     cout << g;
 }
