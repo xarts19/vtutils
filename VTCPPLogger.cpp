@@ -1,6 +1,8 @@
 #include "VTCPPLogger.h"
 
+#ifndef VT_LOGGER_DONT_USE_VTTHREAD
 #include "VTThread.h"
+#endif
 
 #include <exception>
 #include <iostream>
@@ -251,8 +253,10 @@ VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::str
 
     std::ios::fmtflags f(msg_stream_.flags());
 
+#ifndef VT_LOGGER_DONT_USE_VTTHREAD
     if (!is_set(opts, LO_NoThreadId))
         msg_stream_ << "(0x" << std::hex << VT::Thread::current_thread_id() << ") ";
+#endif
 
     msg_stream_.flags(f);  // restore state to undo std::hex changes to stream
 

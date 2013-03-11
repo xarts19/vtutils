@@ -1,8 +1,5 @@
 #pragma once
 
-#include "VTUtil.h"
-#include "VTCriticalSection.h"
-
 #include <ostream>
 #include <map>
 #include <memory>
@@ -12,6 +9,9 @@
 #include <sstream>
 #include <cstdio>
 
+
+// define this macro if you don't want to use VTThread (you won't see thread id)
+//#define VT_LOGGER_DONT_USE_VTTHREAD
 
 // TODO:
 //   * implement coloring (separate implementations for each platform)
