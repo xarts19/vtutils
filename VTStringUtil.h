@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cctype>
+#include <algorithm>
 
 namespace VT
 {
