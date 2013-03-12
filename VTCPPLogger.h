@@ -151,6 +151,10 @@ namespace VT
     };
 
 
+    // stream manipulator to surround next argument with quotes
+    void quote(detail_::LogWorker& log_worker);
+
+
     namespace detail_
     {
         class LogWorker
@@ -169,7 +173,17 @@ namespace VT
             template <typename T>
             LogWorker& operator<<(T arg)
             {
+                if (quote_)
+                    msg_stream_ << '"';
+
                 msg_stream_ << arg;
+
+                if (quote_)
+                {
+                    msg_stream_ << '"';
+                    quote_ = false;
+                }
+
                 if (!(options_ & LO_NoSpace))
                     msg_stream_ << " ";
                 return *this;
@@ -187,14 +201,23 @@ namespace VT
                 return *this;
             }
 
+            LogWorker& operator<<(void (*manip)(LogWorker&))
+            {
+                manip(*this);
+                return *this;
+            }
+
         private:
             // deleted
             LogWorker& operator=(const LogWorker&);
+
+            friend void VT::quote(LogWorker& log_worker);
             
             Logger*            logger_;
             LogLevel           msg_level_;
             std::ostringstream msg_stream_;
             unsigned int       options_;
+            bool               quote_;
         };
     }
 }

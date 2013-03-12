@@ -20,7 +20,6 @@ namespace VT
         bool join( int timeout_millis = -1 );  // -1 means INFINITE
         bool isRunning() const;
         bool isFinished() const;
-        virtual void run() = 0;
 
         unsigned long id() const;
         
@@ -31,6 +30,9 @@ namespace VT
         // prevent copying
         Thread( const Thread& );
         Thread& operator=( const Thread& );
+
+        // override this function to execute on thread
+        virtual void run() = 0;
 
         struct Impl;
         Impl* pimpl_;

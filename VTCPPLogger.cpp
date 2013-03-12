@@ -238,12 +238,19 @@ void VT::Logger::log_worker(LogLevel level, const std::string& msg)
 }
 
 
+void VT::quote(detail_::LogWorker& log_worker)
+{
+    log_worker.quote_ = true;
+}
+
+
 
 VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts)
     : logger_(logger)
     , msg_level_(level)
     , msg_stream_()
     , options_(opts)
+    , quote_(false)
 {
     if (!is_set(opts, LO_NoTimestamp))
         msg_stream_ << createTimestamp() << " ";
@@ -281,6 +288,7 @@ VT::detail_::LogWorker::LogWorker(LogWorker&& other)
     , msg_level_(other.msg_level_)
     , msg_stream_()
     , options_(other.msg_level_)
+    , quote_(other.quote_)
 {
     // FIXME: use msg_stream_ move constructor to move it
     // as soon as gcc supports it
