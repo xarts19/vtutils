@@ -3,6 +3,7 @@
 namespace VT
 {
 
+    // At least on Windows, it's safe to call enter on already owned lock
     class CriticalSection
     {
 
@@ -19,8 +20,8 @@ namespace VT
         CriticalSection& operator=(const CriticalSection&);
 
     private:
-        struct critical_section_data;
-        critical_section_data* data;
+        struct Impl;
+        Impl* data;
     };
     
     class CSLocker

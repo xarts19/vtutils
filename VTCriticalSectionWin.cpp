@@ -1,33 +1,33 @@
 #include "VTCriticalSection.h"
 #include <Windows.h>
 
-struct VT::CriticalSection::critical_section_data
+struct VT::CriticalSection::Impl
 {
-    CRITICAL_SECTION _criticalSection;
+    CRITICAL_SECTION criticalSection_;
 };
 
-VT::CriticalSection::CriticalSection() : data( new critical_section_data() )
+VT::CriticalSection::CriticalSection() : data( new Impl() )
 {
-    InitializeCriticalSection( &data->_criticalSection );
+    InitializeCriticalSection( &data->criticalSection_ );
 }
 
 VT::CriticalSection::~CriticalSection()
 {
-    DeleteCriticalSection( &data->_criticalSection );
+    DeleteCriticalSection( &data->criticalSection_ );
     delete data;
 }
 
 void VT::CriticalSection::enter()
 {
-    EnterCriticalSection( &data->_criticalSection );
+    EnterCriticalSection( &data->criticalSection_ );
 }
 
 bool VT::CriticalSection::try_enter()
 {
-    return TryEnterCriticalSection( &data->_criticalSection ) == 0;
+    return TryEnterCriticalSection( &data->criticalSection_ ) == 0;
 }
 
 void VT::CriticalSection::leave()
 {
-    LeaveCriticalSection( &data->_criticalSection );
+    LeaveCriticalSection( &data->criticalSection_ );
 }
