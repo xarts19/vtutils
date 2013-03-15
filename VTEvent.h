@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: Linux Event class
+
 namespace VT
 {
     class Event

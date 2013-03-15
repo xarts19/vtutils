@@ -7,6 +7,7 @@ namespace VT
     namespace StrUtils
     {
         // delimiters is a string of delimiting characters of length 1
+        // do not include empty strings between consecutive delimiters
         template <typename Container>
         void split(const std::string& str,
                    Container*         result,
