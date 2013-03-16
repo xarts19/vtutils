@@ -9,12 +9,14 @@ bool VT::FileUtil::read_file(const std::string& path, std::string& buffer)
         return false;
 
     t.seekg(0, std::ios::end);
-    size_t size = t.tellg();
-    if (size == -1)
+    auto size = t.tellg();
+
+    if (static_cast<int>(size) == -1)
         return false;
 
-    buffer.resize(size);
-    t.seekg(0);
+    buffer.resize(static_cast<std::string::size_type>(size));
+    t.seekg(0, std::ios::beg);
+
     t.read(&buffer[0], size); 
     if ( !t.good() )
         return false;
