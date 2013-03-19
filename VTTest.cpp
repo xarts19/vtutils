@@ -2,8 +2,29 @@
 #include "VTUtil.h"
 #include "VTStringUtil.h"
 #include "VTTimer.h"
+#include "VTEvent.h"
+
+#include <assert.h>
 
 int main()
+{
+    // Event test
+    VT::Event event;
+    
+    printf("waiting for 5.5s\n");
+    assert(false == event.wait(5500));
+    
+    printf("waiting 0s\n");
+    assert(false == event.wait(0));
+    
+    printf("setting event\n");
+    assert(true == event.signal());
+    
+    printf("should return immediately\n");
+    assert(true == event.wait());
+}
+
+int main_test()
 {
     VT_ASSERT(true);
     

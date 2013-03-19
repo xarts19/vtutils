@@ -1,6 +1,6 @@
 #include "VTThread.h"
 
-#include "VTCriticalSection.h"
+#include "VTUtil.h"
 
 #include <stdexcept>
 #include <string>
@@ -13,23 +13,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
-
-
-std::string get_lin_error_msg(int code)
-{
-    switch (code)
-    {
-    case EAGAIN: return "Insufficient resources (EAGAIN)";
-    case EINVAL: return "Invalid attr settings (EINVAL)";
-    case EPERM: return "Insufficient permissions (EPREM)";
-    default:
-        {
-            std::stringstream s;
-            s << code;
-            return "Unknown error: " + s.str();
-        }
-    }
-}
 
 
 struct VT::Thread::Impl
@@ -131,7 +114,7 @@ void VT::Thread::start()
     ret = pthread_create(&pimpl_->thread_handle, nullptr, &Impl::thread_start, this);
     
     if ( ret != 0 )
-        throw std::runtime_error( "Failed to create thread. Error: " + get_lin_error_msg(ret) );
+        throw std::runtime_error( "Failed to create thread. Error: " + VT::strerror(ret) );
 }
 
 bool VT::Thread::join( int timeout_millis )
@@ -157,21 +140,21 @@ bool VT::Thread::join( int timeout_millis )
         }
     }
     
-    ret = 0;
-    while (pimpl_->state != detail_::ThreadState::Finished && ret == 0)
+    int wait_ret = 0;
+    while (pimpl_->state != detail_::ThreadState::Finished && wait_ret == 0)
     {
         if (timeout_millis != -1)
-            ret = pthread_cond_timedwait(&pimpl_->finished_cond, &pimpl_->lock, &timeout);
+            wait_ret = pthread_cond_timedwait(&pimpl_->finished_cond, &pimpl_->lock, &timeout);
         else
-            ret = pthread_cond_wait(&pimpl_->finished_cond, &pimpl_->lock);
+            wait_ret = pthread_cond_wait(&pimpl_->finished_cond, &pimpl_->lock);
     }
 
     ret = pthread_mutex_unlock(&pimpl_->lock);
     assert(ret == 0);
     
-    if (ret == 0)
+    if (wait_ret == 0)
         return true;  // thread finished
-    else if (ret == ETIMEDOUT)
+    else if (wait_ret == ETIMEDOUT)
         return false;
     else
         assert(0 && "Error in pthread_cond_timedwait other than timeout");

@@ -37,7 +37,7 @@ void concurrent_test()
     thread2.join();
 }
 
-int main3()
+int main_log()
 {
     auto logger = VT::Logger::cout("default");
 

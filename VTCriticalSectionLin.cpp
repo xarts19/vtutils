@@ -2,12 +2,12 @@
 
 #include <pthread.h>
 
-struct VT::CriticalSection::return
+struct VT::CriticalSection::Impl
 {
     pthread_mutex_t _criticalSection;
 };
 
-VT::CriticalSection::CriticalSection() : data( new return() )
+VT::CriticalSection::CriticalSection() : data( new Impl() )
 {
     pthread_mutex_init( &data->_criticalSection, NULL );
 }

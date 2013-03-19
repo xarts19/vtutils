@@ -1,7 +1,5 @@
 #pragma once
 
-// TODO: Linux Event class
-
 namespace VT
 {
     class Event
@@ -12,6 +10,8 @@ namespace VT
 
         bool signal();
         bool reset();
+        
+        // return true if event is signaled and false on timeout
         bool wait(int timeout_ms = -1);
 
     private:
