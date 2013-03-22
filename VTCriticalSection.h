@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: rename from CriticalSection to Mutex
+
 namespace VT
 {
 
@@ -14,6 +16,11 @@ namespace VT
         void enter();
         bool try_enter();
         void leave();
+
+        // TODO:
+        // pthread_mutex_timedlock
+        // add timout to enter()
+        // PTHREAD_MUTEX_RECURSIVE
 
     private: // non-copyable, non-movable
         CriticalSection(const CriticalSection&);

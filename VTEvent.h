@@ -2,6 +2,7 @@
 
 namespace VT
 {
+    // Event is manual-reset
     class Event
     {
     public:
