@@ -18,7 +18,7 @@ namespace VT
         ~Thread();
 
         void start();
-        bool join( int timeout_millis = -1 );  // -1 means INFINITE
+        bool join(int timeout_millis = -1);  // -1 means INFINITE
 
         bool isRunning() const;
         bool isFinished() const;

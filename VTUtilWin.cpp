@@ -57,12 +57,24 @@ std::string VT::com_error(long hresult)
 
 std::string VT::convert(const std::wstring& str, unsigned int /*codePage = CP_UTF8*/)
 {
+    return convert(str.c_str());
+}
+
+
+std::wstring VT::convert(const std::string& str, unsigned int /*codePage = CP_UTF8*/)
+{
+    return convert(str.c_str());
+}
+
+
+std::string VT::convert(const wchar_t* str, unsigned int /*codePage = CP_UTF8*/)
+{
     // FIXME: implement proper conversion to other code pages from wchar_t
 
-    int size = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    int size = WideCharToMultiByte(CP_UTF8, 0, str, -1, nullptr, 0, nullptr, nullptr);
     std::string buf(size, '\0');  // size includes final '\0'
 
-    if (0 == WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, &buf[0], size, nullptr, nullptr))
+    if (0 == WideCharToMultiByte(CP_UTF8, 0, str, -1, &buf[0], size, nullptr, nullptr))
     {
         throw std::runtime_error(strerror(GetLastError()));
     }
@@ -71,14 +83,14 @@ std::string VT::convert(const std::wstring& str, unsigned int /*codePage = CP_UT
 }
 
 
-std::wstring VT::convert(const std::string& str, unsigned int /*codePage = CP_UTF8*/)
+std::wstring VT::convert(const char* str, unsigned int /*codePage = CP_UTF8*/)
 {
     // FIXME: implement proper conversion from other code pages
 
-    int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+    int size = MultiByteToWideChar(CP_UTF8, 0, str, -1, nullptr, 0);
     std::wstring buf(size, '\0');  // size includes final '\0'
 
-    if (0 == MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &buf[0], size))
+    if (0 == MultiByteToWideChar(CP_UTF8, 0, str, -1, &buf[0], size))
     {
         throw std::runtime_error(strerror(GetLastError()));
     }

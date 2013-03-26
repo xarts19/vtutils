@@ -71,6 +71,8 @@ namespace VT
     // For interface to win32 API functions
     std::string convert(const std::wstring& str, unsigned int codePage = 0/*= CP_UTF8*/);
     std::wstring convert(const std::string& str, unsigned int codePage = 0/*= CP_UTF8*/);
+    std::string convert(const wchar_t* str, unsigned int codePage = 0/*= CP_UTF8*/);
+    std::wstring convert(const char* str, unsigned int codePage = 0/*= CP_UTF8*/);
 
     /*
     // Interface to MFC

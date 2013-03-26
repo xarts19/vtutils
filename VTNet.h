@@ -21,6 +21,8 @@ namespace VT
         bool is_it_my_ip(const std::string& ip);
         bool ip_valid(const std::string& ip);
 
+        int last_error();
+
     private:
         Net();
     };

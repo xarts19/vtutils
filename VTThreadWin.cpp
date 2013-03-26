@@ -59,6 +59,9 @@ VT::Thread::Thread()
 
 VT::Thread::~Thread()
 {
+    if (isRunning())
+        join();
+
     if ( pimpl_->thread_handle != NULL )
         CloseHandle( pimpl_->thread_handle );
 }
@@ -81,7 +84,7 @@ void VT::Thread::start()
     pimpl_->thread_handle = h;
 }
 
-bool VT::Thread::join( int timeout_millis )
+bool VT::Thread::join(int timeout_millis)
 {
     assert( timeout_millis >= -1 );
     assert( pimpl_->state != detail_::ThreadState::NotStarted && "Attempt to join not started VT::Thread");

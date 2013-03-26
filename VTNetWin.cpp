@@ -78,3 +78,36 @@ bool VT::Net::ip_valid(const std::string& ip)
     int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
     return result == 1;
 }
+
+
+int VT::Net::last_error()
+{
+    return WSAGetLastError();
+}
+
+
+/* getting subnet mask
+
+You can use GetAdaptorsInfo(), which is part of Platform SDK, IP Helper API.
+
+You have to include Iphlpapi.h and link with Iphlpapi.lib
+
+You can search through the function in MSDN.
+
+Here is the code I did:
+
+IP_ADAPTER_INFO * FixedInfo;
+ULONG ulOutBufLen;
+
+FixedInfo = (IP_ADAPTER_INFO *) GlobalAlloc( GPTR, sizeof( IP_ADAPTER_INFO ) );
+ulOutBufLen = sizeof( IP_ADAPTER_INFO );
+
+if ( ERROR_SUCCESS != GetAdaptersInfo( FixedInfo, &ulOutBufLen ) )
+{
+    AfxMessageBox("Cound not get the adapter information!");
+    return FALSE;
+}
+
+targetMask = inet_addr( FixedInfo->IpAddressList.IpMask.String );
+
+*/
