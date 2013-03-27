@@ -62,3 +62,9 @@ bool VT::Event::wait(int timeout_ms)
         throw std::runtime_error(ss.str());
     }
 }
+
+
+bool VT::Event::is_signaled()
+{
+    return wait(0);
+}

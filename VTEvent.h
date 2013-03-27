@@ -15,6 +15,8 @@ namespace VT
         // return true if event is signaled and false on timeout
         bool wait(int timeout_ms = -1);
 
+        bool is_signaled();
+
     private:
         Event(const Event&);
         Event& operator=(const Event&);

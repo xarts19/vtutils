@@ -1,17 +1,15 @@
 #pragma once
 
-// TODO: rename from CriticalSection to Mutex
-
 namespace VT
 {
 
     // At least on Windows, it's safe to call enter on already owned lock
-    class CriticalSection
+    class Lock
     {
 
     public:
-        CriticalSection();
-        ~CriticalSection();
+        Lock();
+        ~Lock();
 
         void enter();
         bool try_enter();
@@ -23,25 +21,25 @@ namespace VT
         // PTHREAD_MUTEX_RECURSIVE
 
     private: // non-copyable, non-movable
-        CriticalSection(const CriticalSection&);
-        CriticalSection& operator=(const CriticalSection&);
+        Lock(const Lock&);
+        Lock& operator=(const Lock&);
 
     private:
         struct Impl;
         Impl* data;
     };
     
-    class CSLocker
+    class Locker
     {
     public:
-        explicit CSLocker(CriticalSection& cs) : cs_(cs) { cs_.enter(); }
-        ~CSLocker() { cs_.leave(); }
+        explicit Locker(Lock& cs) : cs_(cs) { cs_.enter(); }
+        ~Locker() { cs_.leave(); }
         
     private:
-        CSLocker(const CSLocker&);
-        CSLocker& operator=(const CSLocker&);
+        Locker(const Locker&);
+        Locker& operator=(const Locker&);
     
-        CriticalSection& cs_;
+        Lock& cs_;
     };
 
 }

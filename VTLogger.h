@@ -4,7 +4,7 @@
 #pragma once
 #pragma warning( disable : 4996 )
 
-#include "VTCriticalSection.h"
+#include "VTLock.h"
 
 #include <string>
 #include <set>
@@ -107,7 +107,7 @@ namespace VT
         static void logger_worker( std::string message );
 
     private:
-        static CriticalSection lock;
+        static Lock lock;
         static std::set<std::string> sinks;
     };
 }

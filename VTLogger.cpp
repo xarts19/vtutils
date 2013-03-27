@@ -18,7 +18,7 @@ bool VT::Logger::prepend_time = false;
 bool VT::Logger::use_stdout = false;
 VT::Logger::LogLevel VT::Logger::log_level = VT::Logger::Warning;
 
-VT::CriticalSection VT::Logger::lock;
+VT::Lock VT::Logger::lock;
 std::set<std::string>  VT::Logger::sinks = default_sinks();
 
 std::string VT::current_date_time()

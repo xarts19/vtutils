@@ -1,6 +1,6 @@
 #include "VTThread.h"
 
-#include "VTCriticalSection.h"
+#include "VTLock.h"
 #include "VTUtil.h"
 
 #include <stdexcept>
@@ -22,7 +22,7 @@ struct VT::Thread::Impl
 
     HANDLE  thread_handle;
     int     state;
-    mutable VT::CriticalSection state_lock;
+    mutable VT::Lock state_lock;
 };
 
 
@@ -30,12 +30,12 @@ unsigned long WINAPI VT::Thread::Impl::thread_start( void* params )
 {
     Thread* t = reinterpret_cast<Thread*>( params );
     {
-        VT::CSLocker lock(t->pimpl_->state_lock);
+        VT::Locker lock(t->pimpl_->state_lock);
         t->pimpl_->state = detail_::ThreadState::Running;
     }
     t->run();
     {
-        VT::CSLocker lock(t->pimpl_->state_lock);
+        VT::Locker lock(t->pimpl_->state_lock);
         t->pimpl_->state = detail_::ThreadState::Finished;
     }
     return 0;
@@ -69,7 +69,7 @@ VT::Thread::~Thread()
 void VT::Thread::start()
 {
     {
-        VT::CSLocker lock(pimpl_->state_lock);
+        VT::Locker lock(pimpl_->state_lock);
         assert(pimpl_->state == detail_::ThreadState::NotStarted && "Attempt to start VT::Thread twice");
         pimpl_->state = detail_::ThreadState::Init;
     }
@@ -90,7 +90,7 @@ bool VT::Thread::join(int timeout_millis)
     assert( pimpl_->state != detail_::ThreadState::NotStarted && "Attempt to join not started VT::Thread");
 
     {
-        VT::CSLocker lock(pimpl_->state_lock);
+        VT::Locker lock(pimpl_->state_lock);
         if ( pimpl_->state == detail_::ThreadState::NotStarted || pimpl_->state == detail_::ThreadState::Finished )
             return true;
     }
@@ -113,13 +113,13 @@ bool VT::Thread::join(int timeout_millis)
 
 bool VT::Thread::isRunning() const
 {
-    VT::CSLocker lock(pimpl_->state_lock);
+    VT::Locker lock(pimpl_->state_lock);
     return ( pimpl_->state == detail_::ThreadState::Running || pimpl_->state == detail_::ThreadState::Init );
 }
 
 bool VT::Thread::isFinished() const
 {
-    VT::CSLocker lock(pimpl_->state_lock);
+    VT::Locker lock(pimpl_->state_lock);
     return ( pimpl_->state == detail_::ThreadState::Finished );
 }
 

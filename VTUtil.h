@@ -80,6 +80,13 @@ namespace VT
     CString convert(const std::string& s);
     */
 
+    template <std::size_t Size>
+    inline void copy_str(const std::string& src, char (&dest)[Size])
+    {
+        assert(src.size() < Size);
+        memcpy(dest, src.c_str(), src.size() + 1);
+    }
+
     std::string strerror(int err_code);
 
 #ifdef VT_USE_COM

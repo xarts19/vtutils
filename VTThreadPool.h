@@ -2,7 +2,7 @@
 
 #include "VTThread.h"
 #include "VTEvent.h"
-#include "VTCriticalSection.h"
+#include "VTLock.h"
 
 #include <memory>
 #include <vector>
@@ -69,6 +69,6 @@ namespace VT
         std::vector<std::function<void()>> queue_;
         VT::Event has_queue_;
         VT::Event has_free_threads_;
-        VT::CriticalSection lock_;
+        VT::Lock lock_;
     };
 }

@@ -1,33 +1,34 @@
-#include "VTCriticalSection.h"
+#include "VTLock.h"
+
 #include <Windows.h>
 
-struct VT::CriticalSection::Impl
+struct VT::Lock::Impl
 {
     CRITICAL_SECTION criticalSection_;
 };
 
-VT::CriticalSection::CriticalSection() : data( new Impl() )
+VT::Lock::Lock() : data( new Impl() )
 {
     InitializeCriticalSection( &data->criticalSection_ );
 }
 
-VT::CriticalSection::~CriticalSection()
+VT::Lock::~Lock()
 {
     DeleteCriticalSection( &data->criticalSection_ );
     delete data;
 }
 
-void VT::CriticalSection::enter()
+void VT::Lock::enter()
 {
     EnterCriticalSection( &data->criticalSection_ );
 }
 
-bool VT::CriticalSection::try_enter()
+bool VT::Lock::try_enter()
 {
     return TryEnterCriticalSection( &data->criticalSection_ ) == 0;
 }
 
-void VT::CriticalSection::leave()
+void VT::Lock::leave()
 {
     LeaveCriticalSection( &data->criticalSection_ );
 }

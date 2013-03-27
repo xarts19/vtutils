@@ -1,34 +1,34 @@
-#include "VTCriticalSection.h"
+#include "VTLock.h"
 
 #include <pthread.h>
 
-struct VT::CriticalSection::Impl
+struct VT::Lock::Impl
 {
     pthread_mutex_t _criticalSection;
 };
 
-VT::CriticalSection::CriticalSection() : data( new Impl() )
+VT::Lock::Lock() : data( new Impl() )
 {
     pthread_mutex_init( &data->_criticalSection, NULL );
 }
 
-VT::CriticalSection::~CriticalSection()
+VT::Lock::~Lock()
 {
     pthread_mutex_destroy( &data->_criticalSection );
     delete data;
 }
 
-void VT::CriticalSection::enter()
+void VT::Lock::enter()
 {
     pthread_mutex_lock( &data->_criticalSection );
 }
 
-bool VT::CriticalSection::try_enter()
+bool VT::Lock::try_enter()
 {
     return pthread_mutex_trylock( &data->_criticalSection ) == 0;
 }
 
-void VT::CriticalSection::leave()
+void VT::Lock::leave()
 {
     pthread_mutex_unlock( &data->_criticalSection );
 }

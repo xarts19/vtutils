@@ -55,6 +55,8 @@ namespace VT
     };
 
 
+    // logging functions should be thread-safe
+    // but anything that changes the logger is probably not
     class Logger
     {
     public:
@@ -153,6 +155,8 @@ namespace VT
 
     // stream manipulator to surround next argument with quotes
     void quote(detail_::LogWorker& log_worker);
+
+    inline const char* yes_no(bool flag) { return (flag ? "yes" : "no"); }
 
 
     namespace detail_

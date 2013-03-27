@@ -76,7 +76,7 @@ VT::ThreadPool::ThreadPool(int thread_count, int max_thread_count)
 VT::ThreadPool::~ThreadPool()
 {
     {
-        CSLocker l(lock_);
+        Locker l(lock_);
         dead_ = true;
         has_queue_.signal();         //  to force scheduler to exit the loop
         has_free_threads_.signal();  //
@@ -132,7 +132,7 @@ void VT::ThreadPool::run(Thread* work)
 
 void VT::ThreadPool::run(const std::function<void()>& work)
 {
-    CSLocker l(lock_);
+    Locker l(lock_);
 
     // do we have free threads?
     auto thread = free_thread();
@@ -174,7 +174,7 @@ void VT::ThreadPool::run()
         std::shared_ptr<d_::WorkerThread> thread;
 
         {
-            CSLocker l(lock_);
+            Locker l(lock_);
 
             if (dead_)  // to exit when destructor sets dead_ and signals has_queue_
                 break;
@@ -201,7 +201,7 @@ void VT::ThreadPool::run()
             has_free_threads_.wait();
         }
 
-        CSLocker l(lock_);
+        Locker l(lock_);
 
         if (dead_)
             break;
