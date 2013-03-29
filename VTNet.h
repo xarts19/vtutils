@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SFML/Network/IpAddress.hpp"
+
 #include <vector>
 #include <string>
 
@@ -19,7 +21,7 @@ namespace VT
         std::string hostname();
         std::vector<std::string> ip_list();
         bool is_it_my_ip(const std::string& ip);
-        bool ip_valid(const std::string& ip);
+        std::string subnet_mask(const sf::IpAddress& ip);
 
         int last_error();
 

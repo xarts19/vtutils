@@ -105,6 +105,9 @@ namespace VT
             }
             return false;
         }
+
+        std::string human_readable_size(unsigned long long size);
+        std::string human_readable_size(long long size);
     }
 }
 

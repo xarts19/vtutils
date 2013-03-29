@@ -256,13 +256,16 @@ VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::str
         msg_stream_ << createTimestamp() << " ";
 
     if (!is_set(opts, LO_NoLoggerName))
-        msg_stream_ << "[" << name << "] ";
+        msg_stream_ << "[" << std::setw(10) << name << "] ";
 
     std::ios::fmtflags f(msg_stream_.flags());
 
 #ifndef VT_LOGGER_DONT_USE_VTTHREAD
     if (!is_set(opts, LO_NoThreadId))
-        msg_stream_ << "(0x" << std::hex << VT::Thread::current_thread_id() << ") ";
+        msg_stream_ << "(0x" << std::hex << std::setw(8);
+        auto ch = msg_stream_.fill('0');
+        msg_stream_ << VT::Thread::current_thread_id() << ") ";
+        msg_stream_.fill(ch);
 #endif
 
     msg_stream_.flags(f);  // restore state to undo std::hex changes to stream

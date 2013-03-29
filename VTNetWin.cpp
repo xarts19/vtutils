@@ -5,9 +5,13 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <memory>
 
 #include <Ws2tcpip.h>
 #include <winsock.h>
+#include <Iphlpapi.h>
+
+#pragma comment(lib, "Iphlpapi.lib")
 
 VT::Net::Net()
 {
@@ -72,11 +76,50 @@ bool VT::Net::is_it_my_ip(const std::string& ip)
 }
 
 
-bool VT::Net::ip_valid(const std::string& ip)
+std::string VT::Net::subnet_mask(const sf::IpAddress& ip)
 {
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
-    return result == 1;
+    std::string mask;
+
+    ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+    IP_ADAPTER_INFO* pAdapterInfo =(IP_ADAPTER_INFO*)malloc(sizeof(IP_ADAPTER_INFO));
+    std::shared_ptr<IP_ADAPTER_INFO> adapter_info;
+    if (pAdapterInfo == NULL)
+    {
+        return mask;
+    }
+
+    // Make an initial call to GetAdaptersInfo to get
+    // the necessary size into the ulOutBufLen variable
+    if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW)
+    {
+        free(pAdapterInfo);
+        adapter_info = std::shared_ptr<IP_ADAPTER_INFO>((IP_ADAPTER_INFO*)malloc(ulOutBufLen), free);
+        if (pAdapterInfo == NULL)
+        {
+            return mask;
+        }
+    }
+    else
+    {
+        adapter_info = std::shared_ptr<IP_ADAPTER_INFO>(pAdapterInfo, free);
+    }
+
+    if (GetAdaptersInfo(adapter_info.get(), &ulOutBufLen) == NO_ERROR)
+    {
+        IP_ADDR_STRING* ip_struct = &adapter_info->IpAddressList;
+        while(ip_struct)
+        {
+            if (ip_struct->IpAddress.String == ip.toString())
+            {
+                mask = ip_struct->IpMask.String;
+                break;
+            }
+
+            ip_struct = ip_struct->Next;
+        }
+    }
+
+    return mask;
 }
 
 
@@ -84,30 +127,3 @@ int VT::Net::last_error()
 {
     return WSAGetLastError();
 }
-
-
-/* getting subnet mask
-
-You can use GetAdaptorsInfo(), which is part of Platform SDK, IP Helper API.
-
-You have to include Iphlpapi.h and link with Iphlpapi.lib
-
-You can search through the function in MSDN.
-
-Here is the code I did:
-
-IP_ADAPTER_INFO * FixedInfo;
-ULONG ulOutBufLen;
-
-FixedInfo = (IP_ADAPTER_INFO *) GlobalAlloc( GPTR, sizeof( IP_ADAPTER_INFO ) );
-ulOutBufLen = sizeof( IP_ADAPTER_INFO );
-
-if ( ERROR_SUCCESS != GetAdaptersInfo( FixedInfo, &ulOutBufLen ) )
-{
-    AfxMessageBox("Cound not get the adapter information!");
-    return FALSE;
-}
-
-targetMask = inet_addr( FixedInfo->IpAddressList.IpMask.String );
-
-*/

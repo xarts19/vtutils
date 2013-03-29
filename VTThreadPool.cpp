@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include <assert.h>
+
 VT::d_::WorkerThread::WorkerThread(VT::Event& free_event)
     : work_()
     , terminated_(false)
@@ -27,8 +29,8 @@ void VT::d_::WorkerThread::run()
         if (terminated_)
             return;
 
+        assert(work_);
         work_();
-
         working_.reset();
         free_event_.signal();
     }

@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-std::string VT::FileUtil::full_path(const std::string& filename)
+std::string VT::full_path(const std::string& filename)
 {
     WCHAR buffer[4096];
 
