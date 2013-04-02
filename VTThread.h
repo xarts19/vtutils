@@ -1,7 +1,5 @@
 #pragma once
 
-// TODO: rename method to adhere to naming convention
-
 namespace VT
 {
     namespace detail_
@@ -20,8 +18,8 @@ namespace VT
         void start();
         bool join(int timeout_millis = -1);  // -1 means INFINITE
 
-        bool isRunning() const;
-        bool isFinished() const;
+        bool is_running() const;
+        bool is_finished() const;
         unsigned long id() const;
         
         // override this function to execute on thread

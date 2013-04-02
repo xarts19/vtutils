@@ -59,7 +59,7 @@ VT::Thread::Thread()
 
 VT::Thread::~Thread()
 {
-    if (isRunning())
+    if (is_running())
         join();
 
     if ( pimpl_->thread_handle != NULL )
@@ -111,13 +111,13 @@ bool VT::Thread::join(int timeout_millis)
     }
 }
 
-bool VT::Thread::isRunning() const
+bool VT::Thread::is_running() const
 {
     VT::Locker lock(pimpl_->state_lock);
     return ( pimpl_->state == detail_::ThreadState::Running || pimpl_->state == detail_::ThreadState::Init );
 }
 
-bool VT::Thread::isFinished() const
+bool VT::Thread::is_finished() const
 {
     VT::Locker lock(pimpl_->state_lock);
     return ( pimpl_->state == detail_::ThreadState::Finished );

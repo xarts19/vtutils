@@ -160,7 +160,7 @@ bool VT::Thread::join( int timeout_millis )
         assert(0 && "Error in pthread_cond_timedwait other than timeout");
 }
 
-bool VT::Thread::isRunning() const
+bool VT::Thread::is_running() const
 {
     int ret = pthread_mutex_lock(&pimpl_->lock);
     assert(ret == 0);
@@ -173,7 +173,7 @@ bool VT::Thread::isRunning() const
     return cond;
 }
 
-bool VT::Thread::isFinished() const
+bool VT::Thread::is_finished() const
 {
     int ret = pthread_mutex_lock(&pimpl_->lock);
     assert(ret == 0);
