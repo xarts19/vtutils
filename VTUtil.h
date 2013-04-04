@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <assert.h>
 
 #define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &);
 #define VT_UNUSED( x ) do { (void)sizeof(x); } while(0)
@@ -84,7 +85,13 @@ namespace VT
     inline void copy_str(const std::string& src, char (&dest)[Size])
     {
         assert(src.size() < Size);
-        memcpy(dest, src.c_str(), src.size() + 1);
+        memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
+    }
+
+    inline void copy_str(const std::string& src, char* dest, size_t size)
+    {
+        assert(src.size() < size);
+        memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
     }
 
     std::string strerror(int err_code);

@@ -12,6 +12,7 @@ namespace VT
     bool read_file(const std::string& path, std::string& buffer);
 
     std::string full_path(const std::string& filename);
+    std::string folder_name(const std::string& filename);
 }
 
 
