@@ -16,8 +16,8 @@ namespace VT
         class WorkerThread : public Thread
         {
         public:
+            WorkerThread(VT::Event& free_notify);
             WorkerThread();  // no definition, used to prevent error in MSVC with make_shared
-            explicit WorkerThread(VT::Event& free_event);
             ~WorkerThread();
 
             void do_work(const std::function<void()>& work);
@@ -32,7 +32,8 @@ namespace VT
             std::function<void()> work_;
             bool terminated_;
             VT::Event working_;
-            VT::Event& free_event_;
+            VT::Event free_;
+            VT::Event& free_notify_;
         };
     }
 

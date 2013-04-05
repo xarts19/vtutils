@@ -78,7 +78,7 @@ void VT::Thread::start()
 
     if ( h == NULL )
     {
-        throw std::runtime_error( "Failed to create thread. Error: " + VT::strerror(GetLastError()) );
+        throw std::runtime_error("Failed to create thread. Error: " + VT::strerror(GetLastError()));
     }
 
     pimpl_->thread_handle = h;
@@ -103,7 +103,7 @@ bool VT::Thread::join(int timeout_millis)
     }
     else if ( result == WAIT_FAILED )
     {
-        throw std::runtime_error( "Something went terribly wrong inside MyThread class. Failed to wait on running thread." );
+        throw std::runtime_error("Something went terribly wrong inside MyThread class. Failed to wait on running thread.");
     }
     else
     {

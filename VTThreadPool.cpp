@@ -4,10 +4,10 @@
 
 #include <assert.h>
 
-VT::d_::WorkerThread::WorkerThread(VT::Event& free_event)
+VT::d_::WorkerThread::WorkerThread(VT::Event& free_notify)
     : work_()
     , terminated_(false)
-    , free_event_(free_event)
+    , free_notify_(free_notify)
 {
     start();
 }
@@ -22,6 +22,8 @@ VT::d_::WorkerThread::~WorkerThread()
 
 void VT::d_::WorkerThread::run()
 {
+    free_.signal();
+
     while (!terminated_)
     {
         working_.wait();
@@ -31,8 +33,10 @@ void VT::d_::WorkerThread::run()
 
         assert(work_);
         work_();
+
         working_.reset();
-        free_event_.signal();
+        free_.signal();
+        free_notify_.signal();
     }
 }
 
@@ -40,6 +44,7 @@ void VT::d_::WorkerThread::run()
 void VT::d_::WorkerThread::do_work(const std::function<void()>& work)
 {
     work_ = work;
+    free_.reset();
     working_.signal();
 }
 
@@ -47,7 +52,7 @@ void VT::d_::WorkerThread::do_work(const std::function<void()>& work)
 void VT::d_::WorkerThread::terminate()
 {
     terminated_ = true;
-    working_.signal();  // TODO: may be a bug here
+    working_.signal();  // TODO: may be a bug here due to compiler reordering
                         // with interactions in run() method
                         // maybe we need to lock terminated_ variable
 }
@@ -55,13 +60,13 @@ void VT::d_::WorkerThread::terminate()
 
 bool VT::d_::WorkerThread::wait(int timeout)
 {
-    return working_.wait(timeout);
+    return free_.wait(timeout);
 }
 
 
 bool VT::d_::WorkerThread::is_free()
 {
-    return (false == working_.wait(0));  // if we timeouted - it's free
+    return free_.wait(0);
 }
 
 
@@ -172,6 +177,7 @@ void VT::ThreadPool::run()
     for (;;)
     {
         has_queue_.wait();
+        has_free_threads_.reset();
 
         std::shared_ptr<d_::WorkerThread> thread;
 
@@ -199,7 +205,6 @@ void VT::ThreadPool::run()
 
         if (!thread)
         {
-            has_free_threads_.reset();
             has_free_threads_.wait();
         }
 
