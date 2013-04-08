@@ -28,4 +28,21 @@ namespace VT
     private:
         Net();
     };
+
+
+    class SubnetIterator
+    {
+    public:
+        SubnetIterator(sf::IpAddress ip);
+
+        // returns sf::IpAddress::None when done
+        sf::IpAddress next();
+        int size() const;
+        bool done() const;
+
+    private:
+        unsigned int ip_counter_;
+        unsigned int net_base_addr_;
+        unsigned int not_mask_;
+    };
 }
