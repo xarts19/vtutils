@@ -28,10 +28,10 @@
 
 std::string createTimestamp()
 {
-    time_t     now      = time( 0 );
-    struct tm  timeinfo = *localtime( &now );
+    time_t     now      = time(0);
+    struct tm  timeinfo = *localtime(&now);
     char       buf[80];
-    strftime( buf, sizeof( buf ), TIMESTAMP_FORMAT, &timeinfo );
+    strftime(buf, sizeof(buf), TIMESTAMP_FORMAT, &timeinfo);
     return buf;
 }
 

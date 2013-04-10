@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VTUtil.h"
+
 #include <ostream>
 #include <map>
 #include <memory>
@@ -57,6 +59,8 @@ namespace VT
 
     // logging functions should be thread-safe
     // but anything that changes the logger is probably not
+    // logger is copyable and copy will share file stream of
+    // original logger
     class Logger
     {
     public:
@@ -155,7 +159,6 @@ namespace VT
 
     // stream manipulator to surround next argument with quotes
     void quote(detail_::LogWorker& log_worker);
-
     inline const char* yes_no(bool flag) { return (flag ? "yes" : "no"); }
 
 
