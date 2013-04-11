@@ -74,6 +74,9 @@ VT::ThreadPool::ThreadPool(int thread_count, int max_thread_count)
     : max_thread_count_(max_thread_count)
     , dead_(false)
 {
+    assert(thread_count >= 0);
+    assert(max_thread_count >= 1);
+    
     set_thread_count(thread_count);
 
     start();
@@ -109,14 +112,16 @@ int VT::ThreadPool::max_thread_count() const
 
 void VT::ThreadPool::set_thread_count(int count)
 {
+    assert(count >= 0);
+    
     // Create new threads
-    while (count > threads_.size())
+    while (static_cast<unsigned int>(count) > threads_.size())
     {
         threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
     }
 
     // Trim existing threads
-    while (count < threads_.size())
+    while (static_cast<unsigned int>(count) < threads_.size())
     {
         threads_.pop_back();  // destructor will call terminate() and join()
     }
@@ -125,8 +130,10 @@ void VT::ThreadPool::set_thread_count(int count)
 
 void VT::ThreadPool::set_max_thread_count(int count)
 {
+    assert(count >= 1);
+    
     max_thread_count_ = count;
-    if (max_thread_count_ < threads_.size())
+    if (static_cast<unsigned int>(max_thread_count_) < threads_.size())
         set_thread_count(max_thread_count_);
 }
 
@@ -147,7 +154,7 @@ void VT::ThreadPool::run(const std::function<void()>& work)
     {
         thread->do_work(work);
     }
-    else if (threads_.size() < max_thread_count_)  // we still have free slots
+    else if (threads_.size() < static_cast<unsigned int>(max_thread_count_))  // we still have free slots
     {
         threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
         threads_.back()->do_work(work);
