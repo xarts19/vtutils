@@ -27,6 +27,7 @@ namespace VT
 {
     // forward declarations
     namespace detail_ { class LogWorker; }
+    class Logger;
     
 
     // enumerations
@@ -57,6 +58,9 @@ namespace VT
     };
 
 
+    VT::Logger& get_logger(const std::string& name, const std::string& copy_from = "");
+
+
     // logging functions should be thread-safe
     // but anything that changes the logger is probably not
     // logger is copyable and copy will share file stream of
@@ -64,14 +68,13 @@ namespace VT
     class Logger
     {
     public:
-        Logger(const std::string& name);
+        explicit Logger(const std::string& name);
         ~Logger();
 
         Logger(const Logger& other);
         Logger& operator=(Logger other);
 
         void swap(Logger& other);
-
 
         // convenience methods
 
@@ -131,7 +134,7 @@ namespace VT
         void reset();
 
 
-        // returns temprorary object for atomic write
+        // returns temporary object for atomic write
 
         detail_::LogWorker log(LogLevel level);
 
@@ -143,6 +146,7 @@ namespace VT
 
     private:
         friend class detail_::LogWorker;
+        friend VT::Logger& get_logger(const std::string& name, const std::string& copy_from);
 
 
         // work function
@@ -160,6 +164,23 @@ namespace VT
     // stream manipulator to surround next argument with quotes
     void quote(detail_::LogWorker& log_worker);
     inline const char* yes_no(bool flag) { return (flag ? "yes" : "no"); }
+
+
+    class LogManager
+    {
+
+
+    private:
+        friend VT::Logger& get_logger(const std::string& name, const std::string& copy_from);
+
+        LogManager();
+        ~LogManager();
+
+        std::map<std::string, VT::Logger> loggers_;
+
+        static LogManager self_;
+        static bool self_valid_;
+    };
 
 
     namespace detail_

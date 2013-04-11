@@ -4,6 +4,8 @@
 #include "VTThread.h"
 #endif
 
+#include "VTStringUtil.h"
+
 #include <exception>
 #include <iostream>
 #include <iomanip>
@@ -24,6 +26,10 @@
     #pragma warning(push)
     #pragma warning(disable: 4996)
 #endif
+
+
+VT::LogManager VT::LogManager::self_;
+bool VT::LogManager::self_valid_ = false;
 
 
 std::string createTimestamp()
@@ -241,6 +247,55 @@ void VT::Logger::log_worker(LogLevel level, const std::string& msg)
 void VT::quote(detail_::LogWorker& log_worker)
 {
     log_worker.quote_ = true;
+}
+
+
+VT::Logger& VT::get_logger(const std::string& name, const std::string& copy_from)
+{
+    if (!LogManager::self_valid_)
+    {
+        throw std::runtime_error("Trying to get logger after LogManager destruction");
+    }
+
+    auto it = LogManager::self_.loggers_.find(name);
+    if (it != LogManager::self_.loggers_.end())
+        return it->second;
+
+    if (!copy_from.empty())
+    {
+        auto it = LogManager::self_.loggers_.find(copy_from);
+        if (it != LogManager::self_.loggers_.end())
+        {
+            auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, it->second));
+            VT::Logger& logger = pair.first->second;
+            logger.pimpl_->name = name;
+            return pair.first->second;
+        }
+        else
+        {
+            auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, Logger::cout(name)));
+            VT::Logger& logger = pair.first->second;
+            logger.warning() << "No logger with name" << copy_from << "to copy config from";
+            return logger;
+        }
+    }
+    else
+    {
+        auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, Logger::cout(name)));
+        return pair.first->second;
+    }
+}
+
+
+VT::LogManager::LogManager()
+{
+    self_valid_ = true;
+}
+
+
+VT::LogManager::~LogManager()
+{
+    self_valid_ = false;
 }
 
 
