@@ -20,7 +20,10 @@ struct VT::Event::Impl
             throw std::runtime_error("Failed to init pthread_cond_t finished_cond variable");
         ret = pthread_mutex_init(&lock, nullptr);
         if (ret != 0)
+        {
+            pthread_cond_destroy(&cond);
             throw std::runtime_error("Failed to init pthread_mutex_t finished_lock variable");
+        }
     }
     
     ~Impl()
@@ -116,3 +119,18 @@ bool VT::Event::wait(int timeout_ms)
     return false;  // unreachable
 }
 
+
+bool VT::Event::is_signaled()
+{
+    int ret = pthread_mutex_lock(&pimpl_->lock);
+    assert(ret == 0);
+
+    bool signaled = pimpl_->signaled;
+    ret = pthread_cond_broadcast(&pimpl_->cond);
+    assert(ret == 0);
+
+    ret = pthread_mutex_unlock(&pimpl_->lock);
+    assert(ret == 0);
+    
+    return signaled;
+}

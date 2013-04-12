@@ -21,12 +21,3 @@ std::string VT::full_path(const std::string& filename)
     }
 }
 
-
-std::string VT::folder_name(const std::string& filename)
-{
-    auto pos = filename.find_last_of('\\');
-    if (pos != filename.npos)
-        return filename.substr(0, pos + 1);
-    else
-        return filename;
-}

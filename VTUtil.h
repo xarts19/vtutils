@@ -5,8 +5,9 @@
 #include <string>
 #include <assert.h>
 #include <string.h>
+#include <stdint.h>
 
-#define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &);
+#define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &)
 #define VT_UNUSED( x ) do { (void)sizeof(x); } while(0)
 
 namespace VT
@@ -74,6 +75,7 @@ namespace VT
     std::string convert(const std::wstring& str, unsigned int codePage = 0/*= CP_UTF8*/);
     std::wstring convert(const std::string& str, unsigned int codePage = 0/*= CP_UTF8*/);
     std::string convert(const wchar_t* str, unsigned int codePage = 0/*= CP_UTF8*/);
+    std::string convert(const uint16_t* str, unsigned int codePage = 0/*= CP_UTF8*/);
     std::wstring convert(const char* str, unsigned int codePage = 0/*= CP_UTF8*/);
 
     /*
@@ -115,7 +117,6 @@ namespace VT
         }
 
         std::string human_readable_size(unsigned long long size);
-        std::string human_readable_size(long long size);
     }
 }
 
