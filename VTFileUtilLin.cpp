@@ -16,7 +16,7 @@ std::string VT::full_path(const std::string& filename)
 
     if (ptr == 0) 
     {
-        throw std::runtime_error(VT::strerror(errno));
+        throw std::runtime_error(filename + ": " + VT::strerror(errno));
     }
     else
     {

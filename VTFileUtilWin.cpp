@@ -13,7 +13,7 @@ std::string VT::full_path(const std::string& filename)
 
     if (retval == 0) 
     {
-        throw std::runtime_error(VT::strerror(GetLastError()));
+        throw std::runtime_error(filename + ": " + VT::strerror(GetLastError()));
     }
     else
     {

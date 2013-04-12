@@ -30,7 +30,7 @@ std::string VT::Net::hostname()
     char ac[80];
     if (gethostname(ac, sizeof(ac)) == -1)
     {
-        throw std::runtime_error(VT::strerror(errno));
+        throw std::runtime_error("hostname:" + VT::strerror(errno));
     }
     return ac;
 }
