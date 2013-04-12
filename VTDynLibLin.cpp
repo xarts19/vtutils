@@ -27,6 +27,7 @@ VT::DynLib::DynLib(const char* name)
 
 VT::DynLib::~DynLib()
 {
+    assert(pimpl_->handle);
     dlclose(pimpl_->handle);
     delete pimpl_;
 }

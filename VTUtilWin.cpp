@@ -13,7 +13,7 @@ std::string VT::strerror(int err_code)
         // use system message tables to retrieve error text
         FORMAT_MESSAGE_FROM_SYSTEM
         // allocate buffer on local heap for error text
-        | FORMAT_MESSAGE_ALLOCATE_BUFFERl
+        | FORMAT_MESSAGE_ALLOCATE_BUFFER
         // Important! will fail otherwise, since we're not
         // (and CANNOT) pass insertion parameters
         | FORMAT_MESSAGE_IGNORE_INSERTS,
