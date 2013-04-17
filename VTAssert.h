@@ -32,24 +32,24 @@
 
 namespace Assert
 {
-	enum FailBehavior
-	{
-		Halt,
-		Continue
-	};
+    enum FailBehavior
+    {
+        Halt,
+        Continue
+    };
 
-	typedef FailBehavior (*Handler)(const char* condition, 
-									const char* msg, 
-									const char* file, 
-									int line);
+    typedef FailBehavior (*Handler)(const char* condition, 
+                                    const char* msg, 
+                                    const char* file, 
+                                    int line);
 
-	Handler GetHandler();
-	void SetHandler(Handler newHandler);
+    Handler GetHandler();
+    void SetHandler(Handler newHandler);
 
-	FailBehavior ReportFailure(const char* condition, 
-							   const char* file, 
-							   int line, 
-							   const char* msg, ...);
+    FailBehavior ReportFailure(const char* condition, 
+                               const char* file, 
+                               int line, 
+                               const char* msg, ...);
 }
 
 #ifdef _MSC_VER
@@ -60,49 +60,49 @@ namespace Assert
 #endif
 
 #ifdef VT_ASSERTS_ENABLED
-	#define VT_ASSERT(cond) \
-		do \
-		{ \
-			if (!(cond)) \
-			{ \
-				if (Assert::ReportFailure(#cond, __FILE__, __LINE__, 0) == \
-					Assert::Halt) \
-					VT_HALT(); \
-			} \
-		} while(0)
+    #define VT_ASSERT(cond) \
+        do \
+        { \
+            if (!(cond)) \
+            { \
+                if (Assert::ReportFailure(#cond, __FILE__, __LINE__, 0) == \
+                    Assert::Halt) \
+                    VT_HALT(); \
+            } \
+        } while(0)
 
-	#define VT_ASSERT_MSG(cond, msg, ...) \
-		do \
-		{ \
-			if (!(cond)) \
-			{ \
-				if (Assert::ReportFailure(#cond, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
-					Assert::Halt) \
-					VT_HALT(); \
-			} \
-		} while(0)
+    #define VT_ASSERT_MSG(cond, msg, ...) \
+        do \
+        { \
+            if (!(cond)) \
+            { \
+                if (Assert::ReportFailure(#cond, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
+                    Assert::Halt) \
+                    VT_HALT(); \
+            } \
+        } while(0)
 
-	#define VT_ASSERT_FAIL(msg, ...) \
-		do \
-		{ \
-			if (Assert::ReportFailure(0, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
-				Assert::Halt) \
-			VT_HALT(); \
-		} while(0)
+    #define VT_ASSERT_FAIL(msg, ...) \
+        do \
+        { \
+            if (Assert::ReportFailure(0, __FILE__, __LINE__, (msg), __VA_ARGS__) == \
+                Assert::Halt) \
+            VT_HALT(); \
+        } while(0)
 
-	#define VT_VERIFY(cond) VT_ASSERT(cond)
-	#define VT_VERIFY_MSG(cond, msg, ...) VT_ASSERT_MSG(cond, msg, ##__VA_ARGS__)
+    #define VT_VERIFY(cond) VT_ASSERT(cond)
+    #define VT_VERIFY_MSG(cond, msg, ...) VT_ASSERT_MSG(cond, msg, ##__VA_ARGS__)
 #else
-	#define VT_ASSERT(condition) \
-		do { VT_UNUSED(condition); } while(0)
-	#define VT_ASSERT_MSG(condition, msg, ...) \
-		do { VT_UNUSED(condition); VT_UNUSED(msg); } while(0)
-	#define VT_ASSERT_FAIL(msg, ...) \
-		do { VT_UNUSED(msg); } while(0)
-	#define VT_VERIFY(cond) (void)(cond)
-	#define VT_VERIFY_MSG(cond, msg, ...) \
-		do { (void)(cond); VT_UNUSED(msg); } while(0)
+    #define VT_ASSERT(condition) \
+        do { VT_UNUSED(condition); } while(0)
+    #define VT_ASSERT_MSG(condition, msg, ...) \
+        do { VT_UNUSED(condition); VT_UNUSED(msg); } while(0)
+    #define VT_ASSERT_FAIL(msg, ...) \
+        do { VT_UNUSED(msg); } while(0)
+    #define VT_VERIFY(cond) (void)(cond)
+    #define VT_VERIFY_MSG(cond, msg, ...) \
+        do { (void)(cond); VT_UNUSED(msg); } while(0)
 #endif
 
 #define VT_STATIC_ASSERT(x) \
-	typedef char pow2StaticAssert[(x) ? 1 : -1];
+    typedef char pow2StaticAssert[(x) ? 1 : -1];

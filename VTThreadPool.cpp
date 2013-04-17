@@ -66,7 +66,7 @@ bool VT::d_::WorkerThread::wait(int timeout)
 
 bool VT::d_::WorkerThread::is_free()
 {
-    return free_.wait(0);
+    return free_.is_signaled();
 }
 
 

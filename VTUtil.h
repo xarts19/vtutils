@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VTAssert.h"
+
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -8,7 +10,19 @@
 #include <stdint.h>
 
 #define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &)
-#define VT_UNUSED( x ) do { (void)sizeof(x); } while(0)
+
+// disable annoying MSVC 'conditional expression is a constant'
+#ifdef _MSC_VER
+    #pragma warning(disable : 4127)
+#endif
+
+#ifdef _MSC_VER
+// MSVC produces the warning for the sizeof variant of this macro, so we use worse version
+// this version is bad because if x is volatile, this would read it
+    #define VT_UNUSED(x) (void)(x)
+#else
+    #define VT_UNUSED(x) (void)(sizeof((x), 0))
+#endif
 
 namespace VT
 {
@@ -87,13 +101,14 @@ namespace VT
     template <std::size_t Size>
     inline void copy_str(const std::string& src, char (&dest)[Size])
     {
-        assert(src.size() < Size);
+        VT_ASSERT(src.size() < Size);
         memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
     }
 
     inline void copy_str(const std::string& src, char* dest, size_t size)
     {
-        assert(src.size() < size);
+        VT_ASSERT(src.size() < size);
+        VT_UNUSED(size);
         memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
     }
 

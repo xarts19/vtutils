@@ -67,34 +67,34 @@ namespace
 
 Assert::Handler Assert::GetHandler()
 {
-	return GetAssertHandlerInstance();
+    return GetAssertHandlerInstance();
 }
 
 void Assert::SetHandler(Assert::Handler newHandler)
 {
-	GetAssertHandlerInstance() = newHandler;
+    GetAssertHandlerInstance() = newHandler;
 }
 
 Assert::FailBehavior Assert::ReportFailure(const char* condition, 
-										   const char* file, 
-										   const int line, 
-										   const char* msg, ...)
+                                           const char* file, 
+                                           const int line, 
+                                           const char* msg, ...)
 {
-	const char* message = NULL;
-	if (msg != NULL)
-	{
-		char messageBuffer[1024];
-		{
-			va_list args;
-			va_start(args, msg);
-			vsnprintf(messageBuffer, sizeof(messageBuffer) - 1, msg, args);
-			va_end(args);
-		}
+    const char* message = NULL;
+    if (msg != NULL)
+    {
+        char messageBuffer[1024];
+        {
+            va_list args;
+            va_start(args, msg);
+            vsnprintf(messageBuffer, sizeof(messageBuffer) - 1, msg, args);
+            va_end(args);
+        }
 
-		message = messageBuffer;
-	}
+        message = messageBuffer;
+    }
 
-	return GetAssertHandlerInstance()(condition, message, file, line);
+    return GetAssertHandlerInstance()(condition, message, file, line);
 }
 
 #ifdef _MSC_VER
