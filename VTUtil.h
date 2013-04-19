@@ -131,7 +131,8 @@ namespace VT
             return false;
         }
 
-        std::string human_readable_size(unsigned long long size);
+        // if precision == -1 : use optimal
+        std::string human_readable_size(unsigned long long size, int precision = -1);
     }
 }
 
