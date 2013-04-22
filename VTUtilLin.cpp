@@ -4,6 +4,13 @@
 #include <sstream>
 
 #include <iconv.h>
+#include <errno.h>
+
+
+int VT::last_error()
+{
+    return errno;
+}
 
 
 std::string VT::strerror(int err_code)

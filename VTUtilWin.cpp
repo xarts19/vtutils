@@ -4,6 +4,13 @@
 
 #include <Windows.h>
 
+
+int VT::last_error()
+{
+    return GetLastError();
+}
+
+
 std::string VT::strerror(int err_code)
 {
     std::string msg;

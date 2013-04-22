@@ -112,6 +112,7 @@ namespace VT
         memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
     }
 
+    int last_error();
     std::string strerror(int err_code);
 
 #ifdef VT_USE_COM
@@ -133,6 +134,10 @@ namespace VT
 
         // if precision == -1 : use optimal
         std::string human_readable_size(unsigned long long size, int precision = -1);
+
+        // Input: ISO 8601 date time with time in UTC ('Z' suffix is mandatory)
+        // e. g. "2013-04-22T17:28[:54]Z"
+        time_t parse_datetime(const std::string& str);
     }
 }
 

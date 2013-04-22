@@ -35,3 +35,46 @@ std::string VT::Utils::human_readable_size(unsigned long long size, int precisio
     ss << std::fixed << std::setprecision(precision) << dsize << " " << units[unit];
     return ss.str();
 }
+
+
+time_t VT::Utils::parse_datetime(const std::string& str)
+{
+    unsigned int yy = 0, mm = 0, dd = 0, h = 0, m = 0, s = 0;
+
+    int num_read = sscanf(str.c_str(), "%u-%u-%uT%u:%u:%u", &yy, &mm, &dd, &h, &m, &s);
+    if (num_read != 5 && num_read != 6)
+        throw std::runtime_error("Wrong date-time string");
+
+    if (yy < 1900)
+        throw std::runtime_error("Years below 1900 are not supported");
+
+    if (!(1 <= mm && mm <= 12))
+        throw std::runtime_error("Wrong month value");
+
+    if (!(1 <= dd && dd <= 31))
+        throw std::runtime_error("Wrong day value");
+
+    if (!(0 <= h && h <= 23))
+        throw std::runtime_error("Wrong hours value");
+
+    if (!(0 <= m && m <= 59))
+        throw std::runtime_error("Wrong minutes value");
+
+    if (!(0 <= s && s <= 59))
+        throw std::runtime_error("Wrong seconds value");
+
+    struct tm c_tm = {0};
+    c_tm.tm_isdst = -1;        // to avoid problems with DST
+    c_tm.tm_year = yy - 1900;  // see tm specification
+    c_tm.tm_mon = mm - 1;      // see tm specification
+    c_tm.tm_mday = dd;
+    c_tm.tm_hour = h;
+    c_tm.tm_min = m;
+    c_tm.tm_sec = s;
+
+    time_t res = mktime(&c_tm);
+    if (res == -1)
+        throw std::runtime_error("Failed to convert tm to time_t");
+
+    return res;
+}
