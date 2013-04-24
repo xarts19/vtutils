@@ -1,5 +1,7 @@
 #include "VTThreadPool.h"
 
+#include "VTTimer.h"
+
 #include <algorithm>
 
 #include <assert.h>
@@ -9,6 +11,8 @@ VT::d_::WorkerThread::WorkerThread(VT::Event& free_notify)
     , terminated_(false)
     , free_notify_(free_notify)
 {
+    free_.signal();
+    free_notify_.signal();
     start();
 }
 
@@ -22,9 +26,7 @@ VT::d_::WorkerThread::~WorkerThread()
 
 void VT::d_::WorkerThread::run()
 {
-    free_.signal();
-
-    while (!terminated_)
+    for (;;)
     {
         working_.wait();
 
@@ -33,7 +35,7 @@ void VT::d_::WorkerThread::run()
 
         assert(work_);
         work_();
-
+        work_ = nullptr;
         working_.reset();
         free_.signal();
         free_notify_.signal();
@@ -52,15 +54,13 @@ void VT::d_::WorkerThread::do_work(const std::function<void()>& work)
 void VT::d_::WorkerThread::terminate()
 {
     terminated_ = true;
-    working_.signal();  // TODO: may be a bug here due to compiler reordering
-                        // with interactions in run() method
-                        // maybe we need to lock terminated_ variable
+    working_.signal();
 }
 
 
-bool VT::d_::WorkerThread::wait(int timeout)
+bool VT::d_::WorkerThread::wait(int timeout_ms)
 {
-    return free_.wait(timeout);
+    return free_.wait(timeout_ms);
 }
 
 
@@ -70,7 +70,7 @@ bool VT::d_::WorkerThread::is_free()
 }
 
 
-VT::ThreadPool::ThreadPool(int thread_count, int max_thread_count)
+VT::ThreadPool::ThreadPool(size_t thread_count, size_t max_thread_count)
     : max_thread_count_(max_thread_count)
     , dead_(false)
 {
@@ -85,55 +85,58 @@ VT::ThreadPool::ThreadPool(int thread_count, int max_thread_count)
 
 VT::ThreadPool::~ThreadPool()
 {
+    wait_for_all();  // wait for work to finish
+
     {
         Locker l(lock_);
         dead_ = true;
         has_queue_.signal();         //  to force scheduler to exit the loop
-        has_free_threads_.signal();  //
     }
 
     join();  // join() (run() method) needs to take the lock
 
-    // destructors of worker threads will take care of joining them
+    // destructors of worker threads will take care of joining existing threads
 }
 
 
-int VT::ThreadPool::thread_count() const
+size_t VT::ThreadPool::thread_count() const
 {
-    return static_cast<int>(threads_.size());
+    return threads_.size();
 }
 
 
-int VT::ThreadPool::max_thread_count() const
+size_t VT::ThreadPool::max_thread_count() const
 {
     return max_thread_count_;
 }
 
 
-void VT::ThreadPool::set_thread_count(int count)
+void VT::ThreadPool::set_thread_count(size_t count)
 {
     assert(count >= 0);
     
+    Locker l(lock_);
+
     // Create new threads
-    while (static_cast<unsigned int>(count) > threads_.size())
+    while (count > threads_.size())
     {
-        threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
+        add_thread();
     }
 
     // Trim existing threads
-    while (static_cast<unsigned int>(count) < threads_.size())
+    while (count < threads_.size())
     {
         threads_.pop_back();  // destructor will call terminate() and join()
     }
 }
 
 
-void VT::ThreadPool::set_max_thread_count(int count)
+void VT::ThreadPool::set_max_thread_count(size_t count)
 {
     assert(count >= 1);
     
     max_thread_count_ = count;
-    if (static_cast<unsigned int>(max_thread_count_) < threads_.size())
+    if (max_thread_count_ < threads_.size())
         set_thread_count(max_thread_count_);
 }
 
@@ -154,9 +157,9 @@ void VT::ThreadPool::run(const std::function<void()>& work)
     {
         thread->do_work(work);
     }
-    else if (threads_.size() < static_cast<unsigned int>(max_thread_count_))  // we still have free slots
+    else if (threads_.size() < max_thread_count_)  // we still have free slots
     {
-        threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
+        add_thread();
         threads_.back()->do_work(work);
     }
     else  // queue that bitch
@@ -167,15 +170,47 @@ void VT::ThreadPool::run(const std::function<void()>& work)
 }
 
 
-bool VT::ThreadPool::wait_for_all(int timeout)
+bool VT::ThreadPool::wait_for_all(int timeout_ms)
 {
-    for (auto it = threads_.begin(); it != threads_.end(); ++it)
-    {
-        if (false == (*it)->wait(timeout))
-            return false;
-    }
+    Timer timer;
 
-    return true;
+    for (;;)
+    {
+        std::shared_ptr<d_::WorkerThread> thread;
+        bool queue_empty = false;
+
+        {
+            Locker l(lock_);
+
+            queue_empty = queue_.empty();
+
+            for (auto it = threads_.begin(); it != threads_.end(); ++it)
+            {
+                if (!(*it)->is_free())
+                {
+                    thread = *it;
+                    break;
+                }
+            }
+        }
+
+        if (!thread && queue_empty)
+            return true;
+
+        int time_left = -1;
+        if (timeout_ms != -1)
+        {
+            time_left = static_cast<int>(timeout_ms - timer.time_elapsed_s() * 1000);
+            if (time_left < 0)
+                return false;
+        }
+
+        if (thread)
+        {
+            if (!thread->wait(time_left))
+                return false;
+        }
+    }
 }
 
 
@@ -196,6 +231,12 @@ void VT::ThreadPool::run()
 
             thread = free_thread();
 
+            if (!thread && threads_.size() < max_thread_count_)  // we still have free slots
+            {
+                add_thread();
+                thread = threads_.back();
+            }
+
             if (thread)
             {
                 if (queue_.size() > 0)
@@ -214,11 +255,6 @@ void VT::ThreadPool::run()
         {
             has_free_threads_.wait();
         }
-
-        Locker l(lock_);
-
-        if (dead_)
-            break;
     }
 }
 
@@ -230,4 +266,10 @@ std::shared_ptr<VT::d_::WorkerThread> VT::ThreadPool::free_thread()
         return *it;
     else
         return std::shared_ptr<d_::WorkerThread>();
+}
+
+
+void VT::ThreadPool::add_thread()
+{
+    threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
 }

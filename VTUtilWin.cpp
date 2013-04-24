@@ -14,7 +14,7 @@ int VT::last_error()
 std::string VT::strerror(int err_code)
 {
     std::string msg;
-    LPTSTR errorText = NULL;
+    LPWSTR errorText = NULL;
 
     FormatMessageW(
         // use system message tables to retrieve error text
@@ -27,7 +27,7 @@ std::string VT::strerror(int err_code)
         NULL,                      // unused with FORMAT_MESSAGE_FROM_SYSTEM
         err_code,
         MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-        (LPTSTR)&errorText,        // output
+        (LPWSTR)&errorText,        // output
         0,                         // minimum size for output buffer
         NULL );
 

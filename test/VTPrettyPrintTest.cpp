@@ -1,4 +1,4 @@
-#include "VTPrettyPrint.h"
+#include "../VTPrettyPrint.h"
 
 #include <map>
 #include <vector>
@@ -209,6 +209,5 @@ int main1() {
         cout << u4 << endl;
     }
 
-    getchar();
     return 0;
 }

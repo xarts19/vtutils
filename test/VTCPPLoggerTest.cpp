@@ -1,6 +1,6 @@
-#include "VTCPPLogger.h"
+#include "../VTCPPLogger.h"
 
-#include "VTThread.h"
+#include "../VTThread.h"
 
 #include <fstream>
 
@@ -37,7 +37,7 @@ void concurrent_test()
     thread2.join();
 }
 
-int main_log()
+int main()
 {
     auto logger = VT::Logger::cout("default");
 
@@ -74,6 +74,5 @@ int main_log()
     file_logger.debug() << "Test1";
     file_logger.warning() << "Warning!";
 
-    getchar();
     return 0;
 }

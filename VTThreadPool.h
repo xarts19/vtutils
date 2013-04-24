@@ -22,7 +22,8 @@ namespace VT
 
             void do_work(const std::function<void()>& work);
             void terminate();
-            bool wait(int timeout = -1);
+
+            bool wait(int timeout_ms = -1);
 
             bool is_free();
 
@@ -40,7 +41,7 @@ namespace VT
     class ThreadPool : private Thread
     {
     public:
-        ThreadPool(int thread_count = 8, int max_thread_count = 100);
+        ThreadPool(size_t thread_count = 8, size_t max_thread_count = 100);
         ~ThreadPool();
 
         // number of threads can grow when needed
@@ -49,22 +50,23 @@ namespace VT
         // if setting count or max_count reduces current thread number,
         // this operation may cause a wait for threads to finish
 
-        int thread_count() const;
-        int max_thread_count() const;
-        void set_thread_count(int count);
-        void set_max_thread_count(int count);
+        size_t thread_count() const;
+        size_t max_thread_count() const;
+        void set_thread_count(size_t count);
+        void set_max_thread_count(size_t count);
 
         void run(Thread* work);
         void run(const std::function<void()>& work);
 
-        bool wait_for_all(int timeout = -1);
+        bool wait_for_all(int timeout_ms = -1);
 
     private:
         virtual void run();  // scheduler
 
         std::shared_ptr<d_::WorkerThread> free_thread();
+        void add_thread();
 
-        int max_thread_count_;
+        size_t max_thread_count_;
         bool dead_;
         std::vector<std::shared_ptr<d_::WorkerThread>> threads_;
         std::vector<std::function<void()>> queue_;
