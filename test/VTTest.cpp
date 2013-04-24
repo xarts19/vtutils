@@ -1,54 +1,149 @@
-#include "VTAssert.h"
-#include "VTUtil.h"
-#include "VTStringUtil.h"
-#include "VTTimer.h"
-#include "VTEvent.h"
+#define CATCH_CONFIG_MAIN
+#include "catch.hpp"
 
-#include <assert.h>
+#include "../VTEvent.h"
+#include "../VTStringUtil.h"
+#include "../VTThreadPool.h"
 
-int main()
+#include <functional>
+
+
+TEST_CASE("VTUtils/VTEvent/constructor", "Should construct not signaled event")
 {
-    // Event test
     VT::Event event;
-    
-    printf("waiting for 5.5s\n");
-    assert(false == event.wait(5500));
-    
-    printf("waiting 0s\n");
-    assert(false == event.wait(0));
-    
-    printf("setting event\n");
-    assert(true == event.signal());
-    
-    printf("should return immediately\n");
-    assert(true == event.wait());
+    REQUIRE(event.is_signaled() == false);
 }
 
-int main_test()
+
+TEST_CASE("VTUtils/VTEvent/signal", "Should set event's signaled state")
 {
-    VT_ASSERT(true);
-    
-    VT::Timer timer;
-    
-    std::vector<int> cont;
-    VT::Utils::insert_if_not_present(cont, 4);
-    VT_ASSERT(cont.size() == 1 && cont[0] == 4);
-    
+    VT::Event event;
+    event.signal();
+    REQUIRE(event.is_signaled() == true);
+}
+
+
+TEST_CASE("VTUtils/VTEvent/reset", "Should unset event's signaled state")
+{
+    VT::Event event;
+    event.signal();
+    event.reset();
+    REQUIRE(event.wait(0) == false);
+    REQUIRE(event.is_signaled() == false);
+}
+
+
+TEST_CASE("VTUtils/VTEvent/timeouts", "Verious timeouts")
+{
+    // timeouts are not too long to speed up testing
+    VT::Event event;
+    REQUIRE(event.wait(1) == false);
+    event.signal();
+    REQUIRE(event.wait(1) == true);
+    REQUIRE(event.wait() == true);  // infinite wait
+    event.reset();
+    REQUIRE(event.wait(1) == false);
+    REQUIRE(event.is_signaled() == false);
+}
+
+
+TEST_CASE("VTUtils/VTStringUtils/trim", "")
+{
+    CHECK(VT::StrUtils::trim("  Bus     ") == "Bus");
+    CHECK(VT::StrUtils::trim("Bus     ") == "Bus");
+    CHECK(VT::StrUtils::trim("    Bus") == "Bus");
+    CHECK(VT::StrUtils::trim("Bus") == "Bus");
+    CHECK(VT::StrUtils::trim("a Bus") == "a Bus");
+}
+
+
+TEST_CASE("VTUtils/VTStringUtils/split", "")
+{
     std::vector<std::string> contspl;
     VT::StrUtils::split("one,two,three", &contspl, ",");
-    VT_ASSERT(contspl.size() == 3 && contspl[0] == "one" && contspl[1] == "two" && contspl[2] == "three");
-    
-    VT_ASSERT(VT::StrUtils::trim("  Bus     ") == "Bus");
-    VT_ASSERT(VT::StrUtils::trim("Bus") == "Bus");
-    VT_ASSERT(VT::StrUtils::trim("a Bus") == "a Bus");
-    VT_ASSERT(VT::StrUtils::starts_with("good day", "good") == true);
-    VT_ASSERT(VT::StrUtils::starts_with("good day", "bad") == false);
-    VT_ASSERT(VT::StrUtils::starts_with(" good day", "good") == false);
-    
-    VT_ASSERT(VT::StrUtils::to_lower("BaUojdUIOnsa adf DDF") == "bauojduionsa adf ddf");
-
-    printf("Test ran in %f s\n", timer.time_elapsed_s());
-    
-    return 0;
+    REQUIRE(contspl.size() == 3);
+    REQUIRE(contspl[0] == "one");
+    REQUIRE(contspl[1] == "two");
+    REQUIRE(contspl[2] == "three");
 }
 
+
+TEST_CASE("VTUtils/VTStringUtils/to_lower", "")
+{
+    REQUIRE(VT::StrUtils::to_lower("BaUojdUIOnsa adf DDF") == "bauojduionsa adf ddf");
+}
+
+
+TEST_CASE("VTUtils/VTStringUtils/empty", "Empty string")
+{
+    REQUIRE(VT::StrUtils::to_lower("") == "");
+}
+
+
+TEST_CASE("VTUtils/VTStringUtils/symbols", "Numbers and symbols")
+{
+    REQUIRE(VT::StrUtils::to_lower("1234567890!@#$%^&*()_+-=:';{}[]<>,./?~`") == "1234567890!@#$%^&*()_+-=:';{}[]<>,./?~`");
+}
+
+
+TEST_CASE("VTUtils/VTThreadPool/constructor", "")
+{
+    VT::ThreadPool tp(2, 5);
+    REQUIRE(tp.thread_count() == 2);
+    REQUIRE(tp.max_thread_count() == 5);
+    REQUIRE(tp.wait_for_all() == true);
+}
+
+
+TEST_CASE("VTUtils/VTThreadPool/change_count", "")
+{
+    VT::ThreadPool tp(2, 5);
+    tp.set_thread_count(3);
+    REQUIRE(tp.thread_count() == 3);
+    tp.set_thread_count(1);
+    REQUIRE(tp.thread_count() == 1);
+}
+
+
+TEST_CASE("VTUtils/VTThreadPool/change_max_count", "")
+{
+    VT::ThreadPool tp(2, 5);
+    tp.set_max_thread_count(7);
+    REQUIRE(tp.max_thread_count() == 7);
+    tp.set_max_thread_count(4);
+    REQUIRE(tp.max_thread_count() == 4);
+    tp.set_max_thread_count(1);
+    REQUIRE(tp.max_thread_count() == 1);
+    REQUIRE(tp.thread_count() == 1);
+}
+
+
+void work(int& param)
+{
+    param += 1;
+}
+
+TEST_CASE("VTUtils/VTThreadPool/run", "")
+{
+    VT::ThreadPool tp(2, 5);
+    int x = 41;
+    tp.run(std::bind(&work, std::ref(x)));
+    tp.wait_for_all();
+    REQUIRE(x == 42);
+}
+
+
+TEST_CASE("VTUtils/VTThreadPool/run_multiple", "")
+{
+    VT::ThreadPool tp(2, 5);
+    std::vector<int> v(10);
+    for (int i = 0; i < 10; ++i)
+    {
+        v[i] = 41;
+        tp.run(std::bind(&work, std::ref(v[i])));
+    }
+    tp.wait_for_all();
+    
+    for (int i = 0; i < 10; ++i)
+        REQUIRE(v[i] == 42);
+}

@@ -688,8 +688,8 @@ namespace Catch {
     }
 
     inline bool shouldContinueOnFailure( int flags ) { return flags & ResultDisposition::ContinueOnFailure; }
-    inline bool shouldNegate( int flags ) { return flags & ResultDisposition::NegateResult; }
-    inline bool shouldSuppressFailure( int flags ) { return flags & ResultDisposition::SuppressFail; }
+    inline bool shouldNegate( int flags ) { return 0 != (flags & ResultDisposition::NegateResult); }
+    inline bool shouldSuppressFailure( int flags ) { return 0 != (flags & ResultDisposition::SuppressFail); }
 
 } // end namespace Catch
 

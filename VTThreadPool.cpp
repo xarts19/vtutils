@@ -113,7 +113,7 @@ size_t VT::ThreadPool::max_thread_count() const
 
 void VT::ThreadPool::set_thread_count(size_t count)
 {
-    assert(count >= 0);
+    assert(count <= max_thread_count_);
     
     Locker l(lock_);
 
