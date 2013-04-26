@@ -3,6 +3,7 @@
 #include "VTThread.h"
 #include "VTEvent.h"
 #include "VTLock.h"
+#include "VTFuture.h"
 
 #include <memory>
 #include <vector>
@@ -13,6 +14,19 @@ namespace VT
 {
     namespace d_
     {
+        struct WorkData
+        {
+            WorkData(const std::function<void()> work,
+                     const Promise& result)
+               : work(work)
+               , result(result)
+            { }
+
+            std::function<void()> work;
+            Promise result;
+        };
+
+
         class WorkerThread : public Thread
         {
         public:
@@ -20,7 +34,7 @@ namespace VT
             WorkerThread();  // no definition, used to prevent error in MSVC with make_shared
             ~WorkerThread();
 
-            void do_work(const std::function<void()>& work);
+            void do_work(const WorkData& work_data);
             void terminate();
 
             bool wait(int timeout_ms = -1);
@@ -30,7 +44,7 @@ namespace VT
         private:
             virtual void run();
 
-            std::function<void()> work_;
+            WorkData work_data_;
             bool terminated_;
             VT::Event working_;
             VT::Event free_;
@@ -55,23 +69,26 @@ namespace VT
         void set_thread_count(size_t count);
         void set_max_thread_count(size_t count);
 
-        void run(Thread* work);
-        void run(const std::function<void()>& work);
+        Future run(Thread* work);
+        Future run(const std::function<void()>& work);
 
         bool wait_for_all(int timeout_ms = -1);
+
+        static ThreadPool global;
 
     private:
         virtual void run();  // scheduler
 
         std::shared_ptr<d_::WorkerThread> free_thread();
         void add_thread();
+        void adjust_thread_count(size_t count);
 
         size_t max_thread_count_;
         bool dead_;
         std::vector<std::shared_ptr<d_::WorkerThread>> threads_;
-        std::vector<std::function<void()>> queue_;
+        std::vector<d_::WorkData> queue_;
         VT::Event has_queue_;
         VT::Event has_free_threads_;
-        VT::Lock lock_;
+        mutable VT::Lock lock_;
     };
 }

@@ -29,13 +29,17 @@ VT::Event::~Event()
 
 bool VT::Event::signal()
 {
-    return 0 != SetEvent(pimpl_->event_data);
+    if (0 == SetEvent(pimpl_->event_data))
+        throw std::runtime_error("SetEvent failed");
+    return true;
 }
 
 
 bool VT::Event::reset()
 {
-    return 0 != ResetEvent(pimpl_->event_data);
+    if (0 == ResetEvent(pimpl_->event_data))
+        throw std::runtime_error("ResetEvent failed");
+    return true;
 }
 
 

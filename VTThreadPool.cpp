@@ -6,8 +6,14 @@
 
 #include <assert.h>
 
+#define GLOBAL_THREAD_POOL_SIZE 1
+#define GLOBAL_THREAD_POOL_MAX_SIZE 10
+
+VT::ThreadPool VT::ThreadPool::global(GLOBAL_THREAD_POOL_SIZE, GLOBAL_THREAD_POOL_MAX_SIZE);
+
+
 VT::d_::WorkerThread::WorkerThread(VT::Event& free_notify)
-    : work_()
+    : work_data_(nullptr, Promise())
     , terminated_(false)
     , free_notify_(free_notify)
 {
@@ -33,9 +39,10 @@ void VT::d_::WorkerThread::run()
         if (terminated_)
             return;
 
-        assert(work_);
-        work_();
-        work_ = nullptr;
+        assert(work_data_.work);
+        work_data_.work();
+        work_data_.work = nullptr;
+        work_data_.result.set_done();
         working_.reset();
         free_.signal();
         free_notify_.signal();
@@ -43,9 +50,9 @@ void VT::d_::WorkerThread::run()
 }
 
 
-void VT::d_::WorkerThread::do_work(const std::function<void()>& work)
+void VT::d_::WorkerThread::do_work(const WorkData& work_data)
 {
-    work_ = work;
+    work_data_ = work_data;
     free_.reset();
     working_.signal();
 }
@@ -101,12 +108,14 @@ VT::ThreadPool::~ThreadPool()
 
 size_t VT::ThreadPool::thread_count() const
 {
+    Locker l(lock_);
     return threads_.size();
 }
 
 
 size_t VT::ThreadPool::max_thread_count() const
 {
+    Locker l(lock_);
     return max_thread_count_;
 }
 
@@ -114,59 +123,53 @@ size_t VT::ThreadPool::max_thread_count() const
 void VT::ThreadPool::set_thread_count(size_t count)
 {
     assert(count <= max_thread_count_);
-    
     Locker l(lock_);
-
-    // Create new threads
-    while (count > threads_.size())
-    {
-        add_thread();
-    }
-
-    // Trim existing threads
-    while (count < threads_.size())
-    {
-        threads_.pop_back();  // destructor will call terminate() and join()
-    }
+    adjust_thread_count(count);
 }
 
 
 void VT::ThreadPool::set_max_thread_count(size_t count)
 {
     assert(count >= 1);
-    
+    Locker l(lock_);
     max_thread_count_ = count;
     if (max_thread_count_ < threads_.size())
-        set_thread_count(max_thread_count_);
+        adjust_thread_count(max_thread_count_);
 }
 
 
-void VT::ThreadPool::run(Thread* work)
+VT::Future VT::ThreadPool::run(Thread* work)
 {
-    run(std::bind(std::mem_fn(&Thread::run), work));
+    return run(std::bind(std::mem_fn(&Thread::run), work));
 }
 
 
-void VT::ThreadPool::run(const std::function<void()>& work)
+VT::Future VT::ThreadPool::run(const std::function<void()>& work)
 {
     Locker l(lock_);
+
+    Promise prom;
+    Future fut = prom.get_future();
+    d_::WorkData work_data(work, prom);
 
     // do we have free threads?
     auto thread = free_thread();
     if (thread)
     {
-        thread->do_work(work);
+        thread->do_work(work_data);
     }
     else if (threads_.size() < max_thread_count_)  // we still have free slots
     {
         add_thread();
-        threads_.back()->do_work(work);
+        threads_.back()->do_work(work_data);
     }
     else  // queue that bitch
     {
-        queue_.push_back(work);
+        queue_.push_back(work_data);
         has_queue_.signal();
     }
+
+    return fut;
 }
 
 
@@ -241,9 +244,9 @@ void VT::ThreadPool::run()
             {
                 if (queue_.size() > 0)
                 {
-                    auto work = queue_.back();
+                    auto work_data = queue_.back();
                     queue_.pop_back();
-                    thread->do_work(work);
+                    thread->do_work(work_data);
 
                     if (queue_.empty())
                         has_queue_.reset();
@@ -272,4 +275,20 @@ std::shared_ptr<VT::d_::WorkerThread> VT::ThreadPool::free_thread()
 void VT::ThreadPool::add_thread()
 {
     threads_.push_back(std::make_shared<d_::WorkerThread>(has_free_threads_));
+}
+
+
+void VT::ThreadPool::adjust_thread_count(size_t count)
+{
+    // Create new threads
+    while (count > threads_.size())
+    {
+        add_thread();
+    }
+
+    // Trim existing threads
+    while (count < threads_.size())
+    {
+        threads_.pop_back();  // destructor will call terminate() and join()
+    }
 }
