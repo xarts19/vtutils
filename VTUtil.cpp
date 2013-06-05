@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iomanip>
 #include <assert.h>
+#include <stdexcept>
 
 std::string VT::Utils::human_readable_size(unsigned long long size, int precision)
 {
@@ -54,16 +55,17 @@ time_t VT::Utils::parse_datetime(const std::string& str)
     if (!(1 <= dd && dd <= 31))
         throw std::runtime_error("Wrong day value");
 
-    if (!(0 <= h && h <= 23))
+    if (!(h <= 23))
         throw std::runtime_error("Wrong hours value");
 
-    if (!(0 <= m && m <= 59))
+    if (!(m <= 59))
         throw std::runtime_error("Wrong minutes value");
 
-    if (!(0 <= s && s <= 59))
+    if (!(s <= 59))
         throw std::runtime_error("Wrong seconds value");
 
-    struct tm c_tm = {0};
+    struct tm c_tm;
+    memset(&c_tm, 0, sizeof(c_tm));
     c_tm.tm_isdst = -1;        // to avoid problems with DST
     c_tm.tm_year = yy - 1900;  // see tm specification
     c_tm.tm_mon = mm - 1;      // see tm specification

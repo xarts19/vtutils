@@ -81,7 +81,6 @@ VT::ThreadPool::ThreadPool(size_t thread_count, size_t max_thread_count)
     : max_thread_count_(max_thread_count)
     , dead_(false)
 {
-    assert(thread_count >= 0);
     assert(max_thread_count >= 1);
     
     set_thread_count(thread_count);

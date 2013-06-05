@@ -1,5 +1,7 @@
 #include "VTFuture.h"
 
+#include <stdexcept>
+
 VT::Promise::Promise()
     : event_(new VT::Event())
 {
@@ -57,5 +59,5 @@ bool VT::Future::wait(int timeout_ms)
 
 bool VT::Future::valid() const
 {
-    return event_;
+    return static_cast<bool>(event_);
 }

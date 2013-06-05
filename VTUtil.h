@@ -21,7 +21,7 @@
 // this version is bad because if x is volatile, this would read it
     #define VT_UNUSED(x) (void)(x)
 #else
-    #define VT_UNUSED(x) (void)(sizeof((x), 0))
+    #define VT_UNUSED(x) (void)(x)
 #endif
 
 namespace VT
