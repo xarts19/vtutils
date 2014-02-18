@@ -1,12 +1,8 @@
 #include "VTCPPLogger.h"
 
-#ifndef VT_LOGGER_DONT_USE_VTTHREAD
-#include "VTThread.h"
-#endif
-
-#include "VTStringUtil.h"
-
-#include <exception>
+#include <thread>
+#include <mutex>
+#include <stdexcept>
 #include <iostream>
 #include <iomanip>
 
@@ -26,6 +22,27 @@
     #pragma warning(push)
     #pragma warning(disable: 4996)
 #endif
+
+
+namespace VT
+{
+    class LogManager
+    {
+    private:
+        friend VT::Logger get_logger(const std::string& name);
+        friend void set_logger(const std::string& name, const Logger& logger);
+
+        LogManager();
+        ~LogManager();
+
+        std::map<std::string, VT::Logger> loggers_;
+
+        static LogManager self_;
+        static bool self_valid_;
+
+        std::mutex lock_;
+    };
+}
 
 
 VT::LogManager VT::LogManager::self_;
@@ -104,18 +121,39 @@ struct VT::Logger::Impl
     Impl(const std::string& name) :
         name        (name),
         stream      (nullptr),
+        stream_lock (),
         cout_level  (LL_NoLogging),
         cerr_level  (LL_NoLogging),
         stream_level(LL_NoLogging),
-        default_opts(LO_Default)
+        options     (LO_Default)
     { }
+
+    Impl(const Impl& other) :
+        name        (other.name),
+        stream      (nullptr),
+        stream_lock (),
+        cout_level  (other.cout_level),
+        cerr_level  (other.cerr_level),
+        stream_level(other.stream_level),
+        options     (other.options)
+    {
+        std::lock_guard<std::mutex> l(stream_lock);
+        stream = other.stream;
+    }
+
+    ~Impl()
+    {
+        std::lock_guard<std::mutex> l(stream_lock);
+        stream = nullptr;
+    }
 
     std::string                    name;
     std::shared_ptr<std::FILE>     stream;
+    std::mutex                     stream_lock;
     LogLevel                       cout_level;
     LogLevel                       cerr_level;
     LogLevel                       stream_level;
-    unsigned int                   default_opts;  // LogOpts flags
+    unsigned int                   options;  // LogOpts flags
 };
 
 
@@ -163,13 +201,15 @@ bool VT::Logger::set_stream(std::FILE* stream, LogLevel reporting_level)
 
     if (stream)
     {
-        pimpl_->stream = std::shared_ptr<std::FILE>(stream, std::fclose);
         pimpl_->stream_level = reporting_level;
+        std::lock_guard<std::mutex> lock(pimpl_->stream_lock);
+        pimpl_->stream = std::shared_ptr<std::FILE>(stream, std::fclose);
     }
     else
     {
-        pimpl_->stream = nullptr;
         pimpl_->stream_level = LL_NoLogging;
+        std::lock_guard<std::mutex> lock(pimpl_->stream_lock);
+        pimpl_->stream = nullptr;
     }
 
     return true;
@@ -197,23 +237,23 @@ bool VT::Logger::set_stream(const std::string& filename, LogLevel reporting_leve
 
 void VT::Logger::set(LogOpts opt)
 {
-    ::set(pimpl_->default_opts, opt);
+    ::set(pimpl_->options, opt);
 }
 
 void VT::Logger::unset(LogOpts opt)
 {
-    ::unset(pimpl_->default_opts, opt);
+    ::unset(pimpl_->options, opt);
 }
 
 void VT::Logger::reset()
 {
-    pimpl_->default_opts = LO_Default;
+    pimpl_->options = LO_Default;
 }
 
 
 VT::detail_::LogWorker VT::Logger::log(LogLevel level)
 {
-    return detail_::LogWorker(this, level, pimpl_->name, pimpl_->default_opts);
+    return detail_::LogWorker(this, level);
 }
 VT::detail_::LogWorker VT::Logger::debug()   { return log(LL_Debug); }
 VT::detail_::LogWorker VT::Logger::info()    { return log(LL_Info); }
@@ -222,7 +262,27 @@ VT::detail_::LogWorker VT::Logger::error()   { return log(LL_Error); }
 VT::detail_::LogWorker VT::Logger::critical(){ return log(LL_Critical); }
 
 
-void VT::Logger::log_worker(LogLevel level, const std::string& msg)
+void VT::Logger::add_prelude(std::string& out, LogLevel level)
+{
+    if (!is_set(pimpl_->options, LO_NoTimestamp))
+        safe_sprintf(out, "{0} ", createTimestamp());
+    if (!is_set(pimpl_->options, LO_NoLoggerName))
+        safe_sprintf(out, "[{0}] ", pimpl_->name);
+    if (!is_set(pimpl_->options, LO_NoThreadId))
+        safe_sprintf(out, "0x{0:X} ", std::this_thread::get_id());
+    if (!is_set(pimpl_->options, LO_NoLogLevel))
+        safe_sprintf(out, "<{0}> ", getLogLevel(level));
+}
+
+
+void VT::Logger::add_epilog(std::string& out, LogLevel /*level*/)
+{
+    if (!is_set(pimpl_->options, LO_NoEndl))
+        out.push_back('\n');
+}
+
+
+void VT::Logger::write_to_streams(LogLevel level, const std::string& msg)
 {
     // fprintf is thread-safe on line level
 
@@ -250,39 +310,41 @@ void VT::quote(detail_::LogWorker& log_worker)
 }
 
 
-VT::Logger& VT::get_logger(const std::string& name, const std::string& copy_from)
+VT::Logger VT::get_logger(const std::string& name)
 {
     if (!LogManager::self_valid_)
     {
         throw std::runtime_error("Trying to get logger after LogManager destruction");
     }
 
+    std::lock_guard<std::mutex> lock(LogManager::self_.lock_);
+
     auto it = LogManager::self_.loggers_.find(name);
     if (it != LogManager::self_.loggers_.end())
         return it->second;
 
-    if (!copy_from.empty())
+    auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, Logger::cout(name)));
+    return pair.first->second;
+}
+
+
+void VT::set_logger(const std::string& name, const Logger& logger)
+{
+    if (!LogManager::self_valid_)
     {
-        auto it = LogManager::self_.loggers_.find(copy_from);
-        if (it != LogManager::self_.loggers_.end())
-        {
-            auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, it->second));
-            VT::Logger& logger = pair.first->second;
-            logger.pimpl_->name = name;
-            return pair.first->second;
-        }
-        else
-        {
-            auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, Logger::cout(name)));
-            VT::Logger& logger = pair.first->second;
-            logger.warning() << "No logger with name" << copy_from << "to copy config from";
-            return logger;
-        }
+        throw std::runtime_error("Trying to get logger after LogManager destruction");
+    }
+
+    std::lock_guard<std::mutex> lock(LogManager::self_.lock_);
+
+    auto it = LogManager::self_.loggers_.find(name);
+    if (it != LogManager::self_.loggers_.end())
+    {
+        it->second = logger;
     }
     else
     {
-        auto pair = LogManager::self_.loggers_.insert(std::make_pair(name, Logger::cout(name)));
-        return pair.first->second;
+        LogManager::self_.loggers_.insert(std::make_pair(name, logger));
     }
 }
 
@@ -299,53 +361,33 @@ VT::LogManager::~LogManager()
 }
 
 
-
-VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts)
+VT::detail_::LogWorker::LogWorker(Logger* logger, LogLevel level)
     : logger_(logger)
     , msg_level_(level)
     , msg_stream_()
-    , options_(opts)
+    , options_(logger_->pimpl_->options)
     , quote_(false)
 {
-    if (!is_set(opts, LO_NoTimestamp))
-        msg_stream_ << createTimestamp() << " ";
-
-    if (!is_set(opts, LO_NoLoggerName))
-        msg_stream_ << "[" << std::setw(10) << name << "] ";
-
-    std::ios::fmtflags f(msg_stream_.flags());
-
-#ifndef VT_LOGGER_DONT_USE_VTTHREAD
-    if (!is_set(opts, LO_NoThreadId))
-        msg_stream_ << "(0x" << std::hex << std::setw(8);
-        auto ch = msg_stream_.fill('0');
-        msg_stream_ << VT::Thread::current_thread_id() << ") ";
-        msg_stream_.fill(ch);
-#endif
-
-    msg_stream_.flags(f);  // restore state to undo std::hex changes to stream
-
-    if (!is_set(opts, LO_NoLogLevel))
-        msg_stream_ << std::left << std::setw(10) << "<" + std::string(getLogLevel(msg_level_)) + ">" << " ";
+    std::string out;
+    logger_->add_prelude(out, level);
+    msg_stream_ << out;
 }
+
 
 VT::detail_::LogWorker::~LogWorker()
 {
-    if (!logger_)
-        return;
-    
-    if (!is_set(options_, LO_NoEndl))
-        msg_stream_ << std::endl;
-
-    logger_->log_worker(msg_level_, msg_stream_.str());
+    assert(logger_);
+    std::string out(msg_stream_.str());
+    logger_->add_epilog(out, msg_level_);
+    logger_->write_to_streams(msg_level_, out);
 }
 
-#ifdef __GNUC__
+
 VT::detail_::LogWorker::LogWorker(LogWorker&& other)
     : logger_(other.logger_)
     , msg_level_(other.msg_level_)
     , msg_stream_()
-    , options_(other.msg_level_)
+    , options_(other.options_)
     , quote_(other.quote_)
 {
     // FIXME: use msg_stream_ move constructor to move it
@@ -353,7 +395,14 @@ VT::detail_::LogWorker::LogWorker(LogWorker&& other)
     msg_stream_ << other.msg_stream_.rdbuf();
     other.logger_ = nullptr;
 }
-#endif
+
+
+void VT::detail_::LogWorker::optionally_add_space()
+{
+    if (!(options_ & LO_NoSpace))
+        msg_stream_ << " ";
+}
+
 
 #ifdef _MSC_VER
     #pragma warning(pop)

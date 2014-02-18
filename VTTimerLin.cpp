@@ -22,7 +22,7 @@ unsigned long long get_ms_since_epoch()
     return t.tv_sec * 1000000LL + t.tv_sec;
 }
 
-VT::Timer::Timer(bool start_) : 
+VT::Timer::Timer(bool start_) :
     counter_start_(0)
 {
     if (start_)

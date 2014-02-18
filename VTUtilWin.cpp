@@ -1,9 +1,11 @@
 #include "VTUtil.h"
 
+#include "VTEncodeConvert.hpp"
+#include "VTFileUtil.h"
+
 #include <sstream>
 
 #include <Windows.h>
-
 
 int VT::last_error()
 {
@@ -33,7 +35,7 @@ std::string VT::strerror(int err_code)
 
     if (NULL != errorText)
     {
-        msg = VT::convert(errorText);
+        msg = VT::WstringToUTF8(errorText);
 
         // release memory allocated by FormatMessage()
         LocalFree(errorText);
@@ -57,72 +59,47 @@ std::string VT::com_error(long hresult)
 {
     _com_error err(hresult);
     LPCTSTR errMsg = err.ErrorMessage();
-    return VT::convert(errMsg);
+    return VT::WstringToUTF8(errMsg);
 }
 
 #endif
 
-std::string VT::convert(const std::wstring& str, unsigned int /*codePage = CP_UTF8*/)
+
+std::wstring VT::executable_path()
 {
-    return convert(str.c_str());
+    const size_t size = 512;
+    wchar_t filename[size];
+    auto ret = GetModuleFileNameW(0, filename, size);
+
+    if (ret == 0)
+        VT::create_system_exception("Failed to get current executable path");
+
+    std::wstring res = filename;
+    auto pos = res.rfind(VT_SLASH);
+
+    if (pos == res.npos)
+        VT::create_system_exception("Backslash not found in executable path");
+
+    return res.substr(0, pos + 1);  // Remove exe name
 }
 
-
-std::wstring VT::convert(const std::string& str, unsigned int /*codePage = CP_UTF8*/)
+std::wstring VT::hostname()
 {
-    return convert(str.c_str());
-}
+    unsigned long bufferLen = 64;
+    std::unique_ptr<wchar_t[]> hostName(new wchar_t[bufferLen]);
 
-
-std::string VT::convert(const wchar_t* str, unsigned int /*codePage = CP_UTF8*/)
-{
-    // FIXME: implement proper conversion to other code pages from wchar_t
-
-    int size = WideCharToMultiByte(CP_UTF8, 0, str, -1, nullptr, 0, nullptr, nullptr);
-    std::string buf(size, '\0');  // size includes final '\0'
-
-    if (0 == WideCharToMultiByte(CP_UTF8, 0, str, -1, &buf[0], size, nullptr, nullptr))
+    if(::GetComputerNameEx(ComputerNamePhysicalDnsHostname, hostName.get(), &bufferLen) != 0)
     {
-        throw std::runtime_error(strerror(GetLastError()));
+        return hostName.get();
+    }
+    else if(GetLastError() == ERROR_MORE_DATA)
+    {
+        hostName = std::unique_ptr<wchar_t[]>(new wchar_t[bufferLen]);
+
+        if(::GetComputerNameEx(ComputerNamePhysicalDnsHostname, hostName.get(), &bufferLen) != 0)
+            return hostName.get();
     }
 
-    return buf;
+    return L"";
 }
 
-
-std::wstring VT::convert(const char* str, unsigned int /*codePage = CP_UTF8*/)
-{
-    // FIXME: implement proper conversion from other code pages
-
-    int size = MultiByteToWideChar(CP_UTF8, 0, str, -1, nullptr, 0);
-    std::wstring buf(size, '\0');  // size includes final '\0'
-
-    if (0 == MultiByteToWideChar(CP_UTF8, 0, str, -1, &buf[0], size))
-    {
-        throw std::runtime_error(strerror(GetLastError()));
-    }
-
-    return buf;
-}
-
-
-/*
-std::string convert(const CString& mfcString)
-{
-#ifdef UNICODE
-    return convert(std::wstring(mfcString.GetString()));
-#else
-    return mfcString.GetString();   // This branch is deprecated.
-#endif
-}
-
-CString convert(const std::string& s)
-{
-#ifdef UNICODE
-    return CString(convert(s).c_str());
-#else
-    Exceptions::Assert(false, "Unicode policy violation. See W569"); // This branch is deprecated as it does not support unicode
-    return s.c_str();   
-#endif
-}
-*/

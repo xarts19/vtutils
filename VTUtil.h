@@ -1,117 +1,41 @@
 #pragma once
 
-#include "VTAssert.h"
-
-#include <vector>
-#include <algorithm>
 #include <string>
-#include <assert.h>
-#include <string.h>
-#include <stdint.h>
+#include <memory>
+#include <time.h>
+#include <cstdint>
+
+#include "VTCompilerSpecific.h"
+
+// No variadic templates before Visual Studio 2013
+#if defined(COMPILER_GCC) || (defined(COMPILER_MSVC) && _MSC_VER >= 1800)
+    #define VT_VARIADIC_TEMPLATES_SUPPORTED
+#endif
+
+#ifdef VT_VARIADIC_TEMPLATES_SUPPORTED
+    #include <utility>
+#endif
 
 #define VT_DISABLE_COPY(Class) Class(const Class &); Class & operator= (const Class &)
+#define VT_UNUSED(x) ((void)(x))
+
+#define VT_TIME_ISO8601 "%Y-%m-%dT%H:%M:%S"
+#define VT_TIME_DEFAULT "%Y.%m.%d %H:%M:%S"
+
+// Compile-time static array size
+extern "C++"
+template <typename T, size_t N>
+char (*RtlpNumberOf(T(&)[N]))[N];
+
+#define ARRAY_SIZE(A) (sizeof(*RtlpNumberOf(A)))
 
 // disable annoying MSVC 'conditional expression is a constant'
 #ifdef _MSC_VER
     #pragma warning(disable : 4127)
 #endif
 
-#ifdef _MSC_VER
-// MSVC produces the warning for the sizeof variant of this macro, so we use worse version
-// this version is bad because if x is volatile, this would read it
-    #define VT_UNUSED(x) (void)(x)
-#else
-    #define VT_UNUSED(x) (void)(x)
-#endif
-
 namespace VT
 {
-    // encoding remarks:
-    /*
-        * Do not use wchar_t or std::wstring in any place other than
-          adjacent point to APIs accepting UTF-16.
-
-        * Don't use _T("") or L"" UTF-16 literals (These should IMO
-          be taken out of the standard, as a part of UTF-16 deprecation).
-
-        * Don't use types, functions or their derivatives that are
-          sensitive to the _UNICODE constant, such as LPTSTR or CreateWindow().
-
-        * Yet, _UNICODE always defined, to avoid passing char* strings to WinAPI
-          getting silently compiled
-
-        * std::strings and char* anywhere in program are considered UTF-8 (if not said otherwise)
-
-        * All my strings are std::string, though you can pass char* or string
-          literal to convert(const std::string &).
-
-        * only use Win32 functions that accept widechars (LPWSTR). Never those
-          which accept LPTSTR or LPSTR. Pass parameters this way:
-
-            ::SetWindowTextW(Utils::convert(someStdString or "string litteral").c_str())
-
-        * With MFC strings:
-
-            CString someoneElse; // something that arrived from MFC. 
-                                 // Converted as soon as possible, before 
-                                 // passing any further away from the API call:
-
-            std::string s = str(boost::format("Hello %s\n") % Convert(someoneElse));
-            AfxMessageBox(MfcUtils::Convert(s), _T("Error"), MB_OK);
-
-        * Working with files, filenames and fstream on Windows:
-
-            * Never pass std::string or const char* filename arguments to fstream
-              family. MSVC STL does not support UTF-8 arguments, but has
-              a non-standard extension which should be used as follows:
-
-            * Convert std::string arguments to std::wstring with Utils::Convert:
-
-                std::ifstream ifs(Utils::Convert("hello"),
-                                  std::ios_base::in |
-                                  std::ios_base::binary);
-
-            * We'll have to manually remove the convert, when MSVC's attitude to fstream changes.
-
-            * This code is not multi-platform and may have to be changed manually in the future
-
-            * See fstream unicode research/discussion case 4215 for more info.
-
-            * Never produce text output files with non-UTF8 content
-
-            * Avoid using fopen() for RAII/OOD reasons. If necessary,
-              use _wfopen() and WinAPI conventions above.
-
-          
-    */
-
-    // For interface to win32 API functions
-    std::string convert(const std::wstring& str, unsigned int codePage = 0/*= CP_UTF8*/);
-    std::wstring convert(const std::string& str, unsigned int codePage = 0/*= CP_UTF8*/);
-    std::string convert(const wchar_t* str, unsigned int codePage = 0/*= CP_UTF8*/);
-    std::string convert(const uint16_t* str, unsigned int codePage = 0/*= CP_UTF8*/);
-    std::wstring convert(const char* str, unsigned int codePage = 0/*= CP_UTF8*/);
-
-    /*
-    // Interface to MFC
-    std::string convert(const CString& mfcString);
-    CString convert(const std::string& s);
-    */
-
-    template <std::size_t Size>
-    inline void copy_str(const std::string& src, char (&dest)[Size])
-    {
-        VT_ASSERT(src.size() < Size);
-        memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
-    }
-
-    inline void copy_str(const std::string& src, char* dest, size_t size)
-    {
-        VT_ASSERT(src.size() < size);
-        VT_UNUSED(size);
-        memcpy(dest, src.c_str(), src.size() + 1);  // +1 for '\0'
-    }
-
     int last_error();
     std::string strerror(int err_code);
 
@@ -119,26 +43,110 @@ namespace VT
     std::string com_error(long hresult);
 #endif
 
-    namespace Utils
+    std::wstring executable_path();
+
+    void create_system_exception(const std::string& what, int error_code = 0, const std::string& error_msg = "");
+
+    // if precision == -1 : use optimal
+    std::string human_readable_size(unsigned long long size, int precision = -1);
+
+    // can handle only VT_TIME_DEFAULT for now
+    time_t parse_datetime(const std::string& str);
+
+    std::wstring hostname();
+
+    std::string time_as_string(time_t t = time(nullptr), const char* format = VT_TIME_DEFAULT);
+    std::wstring time_as_wstring(time_t t = time(nullptr), const char* format = VT_TIME_DEFAULT);
+
+    uint64_t GenerateGUID();
+
+    template <typename T>
+    struct default_delete
     {
-        template <typename T>
-        bool insert_if_not_present(std::vector<T>& container, T value)
+        void operator()(T* t)
         {
-            if ( std::find(container.begin(), container.end(), value ) == container.end() )
-            {
-                container.push_back(value);
-                return true;
-            }
-            return false;
+            delete t;
         }
+    };
 
-        // if precision == -1 : use optimal
-        std::string human_readable_size(unsigned long long size, int precision = -1);
+    template <typename T>
+    struct noop_delete
+    {
+        void operator()(T*)
+        { }
+    };
 
-        // Input: ISO 8601 date time with time in UTC ('Z' suffix is mandatory)
-        // e. g. "2013-04-22T17:28[:54]Z"
-        time_t parse_datetime(const std::string& str);
+    // resulting std::string WILL NOT contain '\0' as [size()-1] character
+    std::string str_from_cstr(const char* cstr, std::size_t size);
+
+    // resulting std::string WILL NOT contain '\0' as [size()-1] character
+    template <std::size_t Size>
+    std::string str_from_cstr(const char (&cstr)[Size])
+    {
+        return str_from_cstr(cstr, Size);
     }
+
+
+    // returns max if no '\0' in first max bytes, or the length of the string (without '\0') otherwise
+    std::size_t safe_strlen(const char* str, std::size_t max);
+
+    template <std::size_t Size>
+    std::size_t safe_strlen(const char (&str)[Size])
+    {
+        return safe_strlen(str, Size);
+    }
+
+
+    void copy_str(const char* src, size_t src_len, char* dest, size_t dest_size);
+
+    template <std::size_t Size>
+    void copy_str(const char (&src)[Size], char* dest, size_t dest_size)
+    {
+        size_t len = safe_strlen(src, Size);
+        copy_str(src, len, dest, dest_size);
+    }
+
+    template <std::size_t Size>
+    void copy_str(const char* src, size_t src_len, char (&dest)[Size])
+    {
+        copy_str(src, src_len, dest, Size);
+    }
+
+    template <std::size_t SizeSrc, std::size_t SizeDest>
+    void copy_str(const char (&src)[SizeSrc], char (&dest)[SizeDest])
+    {
+        copy_str(src, dest, SizeDest);
+    }
+
+    void copy_str(const std::string& src, char* dest, size_t size);
+
+    template <std::size_t Size>
+    void copy_str(const std::string& src, char (&dest)[Size])
+    {
+        copy_str(src, dest, Size);
+    }
+
+
+#ifdef VT_VARIADIC_TEMPLATES_SUPPORTED
+    template <typename T, typename... Args>
+    std::unique_ptr<T> make_unique(Args&&... args)
+    {
+        return std::unique_ptr<T>(std::forward<Args>(args)...);
+    }
+
+#else
+    #define _MAKE_UNIQUE(TEMPLATE_LIST, PADDING_LIST, LIST, COMMA, X1, X2, X3, X4)	\
+    \
+    template<class T COMMA LIST(_CLASS_TYPE)>   \
+    inline std::unique_ptr<T> make_unique(LIST(_TYPE_REFREF_ARG))   \
+    {   \
+        return std::unique_ptr<T>(new T(LIST(_FORWARD_ARG)));   \
+    }
+
+    _VARIADIC_EXPAND_0X(_MAKE_UNIQUE, , , , )
+    #undef _MAKE_UNIQUE
+#endif
+
 }
 
 

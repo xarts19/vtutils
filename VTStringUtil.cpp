@@ -1,28 +1,8 @@
 #include "VTStringUtil.h"
+#include "VTUtil.h"
 
 #include <cctype>
 #include <algorithm>
-
-std::string VT::StrUtils::trim(const std::string& str,
-                               const std::string& whitespace)
-{
-    const size_t strBegin = str.find_first_not_of(whitespace);
-    if (strBegin == std::string::npos)
-        return ""; // no content
-
-    const size_t strEnd = str.find_last_not_of(whitespace);
-    const size_t strRange = strEnd - strBegin + 1;
-
-    return str.substr(strBegin, strRange);
-}
-
-bool VT::StrUtils::starts_with(const std::string& str,
-                               const std::string& prefix)
-{
-    if ( str.substr( 0, prefix.size() ) == prefix )
-        return true;
-    return false;
-}
 
 namespace detail_
 {
@@ -32,8 +12,47 @@ namespace detail_
     }
 }
 
-std::string VT::StrUtils::to_lower(std::string str)
+std::string VT::to_lower(std::string str)
 {
     std::transform(str.begin(), str.end(), str.begin(), detail_::char_to_lower);
     return str;
+}
+
+template <typename Ch>
+bool starts_with_helper(const std::basic_string<Ch>& str, const std::basic_string<Ch>& prefix)
+{
+    return 0 == str.compare(0, prefix.size(), prefix);
+}
+
+template <typename Ch>
+bool ends_with_helper(const std::basic_string<Ch>& str, const std::basic_string<Ch>& suffix)
+{
+    if (str.size() < suffix.size())
+        return false;
+
+    return 0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
+}
+
+
+bool VT::starts_with(const std::string& str, const std::string& prefix)
+{
+    return starts_with_helper(str, prefix);
+}
+
+
+bool VT::starts_with(const std::wstring& str, const std::wstring& prefix)
+{
+    return starts_with_helper(str, prefix);
+}
+
+
+bool VT::ends_with(const std::string& str, const std::string& suffix)
+{
+    return ends_with_helper(str, suffix);
+}
+
+
+bool VT::ends_with(const std::wstring& str, const std::wstring& suffix)
+{
+    return ends_with_helper(str, suffix);
 }

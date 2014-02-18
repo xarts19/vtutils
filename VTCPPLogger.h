@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VTUtil.h"
+#include "VTSafeSprintf.h"
 
 #include <ostream>
 #include <map>
@@ -9,18 +9,15 @@
 #include <vector>
 #include <stdexcept>
 #include <sstream>
-#include <cstdio>
 
-
-// define this macro if you don't want to use VTThread (you won't see thread id)
-//#define VT_LOGGER_DONT_USE_VTTHREAD
+// Hint: single logger is thread safe with respect to simultaneous writing messages to the stream,
+// but not thread safe when mutating logger parameters
 
 // TODO:
 //   * implement coloring (separate implementations for each platform)
 //   * add custom timestamp formatting
 /*
-    Example:
-        See VTCPPLoggerTest.cpp for example usage
+
 */
 
 namespace VT
@@ -58,7 +55,8 @@ namespace VT
     };
 
 
-    VT::Logger& get_logger(const std::string& name, const std::string& copy_from = "");
+    VT::Logger get_logger(const std::string& name);
+    void set_logger(const std::string& name, const Logger& logger);
 
 
     // logging functions should be thread-safe
@@ -112,7 +110,7 @@ namespace VT
 
 
         // enable certain streams
-        // passing LL_NoLogging desables the stream
+        // passing LL_NoLogging disables the stream
         // pass nullptr as stream in set_stream when passing LL_NoLogging
 
         void set_cout(LogLevel reporting_level = LL_Debug);
@@ -144,15 +142,120 @@ namespace VT
         detail_::LogWorker error();
         detail_::LogWorker critical();
 
+        // type-safe veriadic logging functions
+
+#ifndef _MSC_VER
+
+        template <typename... Args>
+        void log(LogLevel level, const std::string& fmt, Args&&... args)
+        {
+            try
+            {
+                std::string msg;
+                add_prelude(msg, level);
+                safe_sprintf(msg, fmt, std::forward<Args>(args)...);
+                add_epilog(msg, level);
+                write_to_streams(level, msg);
+            }
+            catch (const std::exception& ex)
+            {
+                throw std::runtime_error("Error while formatting '" + fmt + "': " + ex.what());
+            }
+        }
+
+        template <typename... Args>
+        void debug(const std::string& fmt, Args&&... args)
+        {
+            log(LL_Debug, fmt, std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void info(const std::string& fmt, Args&&... args)
+        {
+            log(LL_Info, fmt, std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void warning(const std::string& fmt, Args&&... args)
+        {
+            log(LL_Warning, fmt, std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void error(const std::string& fmt, Args&&... args)
+        {
+            log(LL_Error, fmt, std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void critical(const std::string& fmt, Args&&... args)
+        {
+            log(LL_Critical, fmt, std::forward<Args>(args)...);
+        }
+
+#else  // limit to 3 arguments
+
+        template <typename A0>
+        void log(LogLevel level, const std::string& fmt, A0&& arg0)
+        {
+            try
+            {
+                std::string msg;
+                add_prelude(msg, level);
+                safe_sprintf(msg, fmt, std::forward<A0>(arg0));
+                add_epilog(msg, level);
+                write_to_streams(level, msg);
+            }
+            catch (const std::exception& ex)
+            {
+                throw std::runtime_error("Error while formatting '" + fmt + "': " + ex.what());
+            }
+        }
+
+        template <typename A0, typename A1>
+        void log(LogLevel level, const std::string& fmt, A0&& arg0, A1&& arg1)
+        {
+            try
+            {
+                std::string msg;
+                add_prelude(msg, level);
+                safe_sprintf(msg, fmt, std::forward<A0>(arg0), std::forward<A1>(arg1));
+                add_epilog(msg, level);
+                write_to_streams(level, msg);
+            }
+            catch (const std::exception& ex)
+            {
+                throw std::runtime_error("Error while formatting '" + fmt + "': " + ex.what());
+            }
+        }
+
+        template <typename A0, typename A1, typename A2>
+        void log(LogLevel level, const std::string& fmt, A0&& arg0, A1&& arg1, A2&& arg2)
+        {
+            try
+            {
+                std::string msg;
+                add_prelude(msg, level);
+                safe_sprintf(msg, fmt, std::forward<A0>(arg0), std::forward<A1>(arg1), std::forward<A2>(arg2));
+                add_epilog(msg, level);
+                write_to_streams(level, msg);
+            }
+            catch (const std::exception& ex)
+            {
+                throw std::runtime_error("Error while formatting '" + fmt + "': " + ex.what());
+            }
+        }
+        
+#endif
+
     private:
         friend class detail_::LogWorker;
-        friend VT::Logger& get_logger(const std::string& name, const std::string& copy_from);
-
 
         // work function
 
-        void log_worker(LogLevel level, const std::string& msg);
-        
+        void add_prelude(std::string& out, LogLevel level);
+        void add_epilog(std::string& out, LogLevel level);
+        void write_to_streams(LogLevel level, const std::string& msg);
 
         // private data
 
@@ -166,35 +269,15 @@ namespace VT
     inline const char* yes_no(bool flag) { return (flag ? "yes" : "no"); }
 
 
-    class LogManager
-    {
-
-
-    private:
-        friend VT::Logger& get_logger(const std::string& name, const std::string& copy_from);
-
-        LogManager();
-        ~LogManager();
-
-        std::map<std::string, VT::Logger> loggers_;
-
-        static LogManager self_;
-        static bool self_valid_;
-    };
-
-
     namespace detail_
     {
         class LogWorker
         {
         public:
-            LogWorker(Logger* logger, LogLevel level, const std::string& name, unsigned int opts);
+            LogWorker(Logger* logger, LogLevel level);
             ~LogWorker();
-            
-#ifdef __GNUC__
+
             LogWorker(LogWorker&& other);
-#endif
-            
 
             // printers
 
@@ -212,8 +295,8 @@ namespace VT
                     quote_ = false;
                 }
 
-                if (!(options_ & LO_NoSpace))
-                    msg_stream_ << " ";
+                optionally_add_space();
+
                 return *this;
             }
 
@@ -238,6 +321,8 @@ namespace VT
         private:
             // deleted
             LogWorker& operator=(const LogWorker&);
+
+            void optionally_add_space();
 
             friend void VT::quote(LogWorker& log_worker);
             

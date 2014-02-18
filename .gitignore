@@ -1,3 +1,4 @@
 #tmp editor files
 *~
 obj/
+*.pro.user
