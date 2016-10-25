@@ -19,7 +19,7 @@ unsigned long long get_ms_since_epoch()
         throw std::runtime_error(err.str());
     }
     
-    return t.tv_sec * 1000000LL + t.tv_sec;
+    return t.tv_sec * 1000000LL + t.tv_usec;
 }
 
 VT::Timer::Timer(bool start_) :
